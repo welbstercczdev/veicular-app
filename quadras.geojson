@@ -1,0 +1,22 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "id_area": 18, "id_quadra": 182 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[ [-45.83, -23.17], [-45.84, -23.17], [-45.84, -23.18], [-45.83, -23.18], [-45.83, -23.17] ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id_area": 18, "id_quadra": 183 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[ [-45.85, -23.19], [-45.86, -23.19], [-45.86, -23.20], [-45.85, -23.20], [-45.85, -23.19] ]]
+      }
+    }
+    // ... todas as outras quadras aqui
+  ]
+}
