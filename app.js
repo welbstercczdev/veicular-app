@@ -1,5 +1,5 @@
 // URL do seu App Script implantado
-const SCRIPT_URL = "SUA_URL_DO_APP_SCRIPT_AQUI";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
 
 // Registra o Service Worker
 if ('serviceWorker' in navigator) {
@@ -15,6 +15,21 @@ const map = L.map('map').setView([-23.1791, -45.8872], 13); // Centralize em sua
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
+
+// Adiciona o controle de rotas
+L.Routing.control({
+    waypoints: [], // Deixe vazio para o usuário adicionar
+    routeWhileDragging: true,
+    show: true,
+    geocoder: L.Control.Geocoder.nominatim(), // Usa o Nominatim para buscar endereços
+    lineOptions: {
+        styles: [{color: 'blue', opacity: 0.8, weight: 5}]
+    },
+    router: L.Routing.osrmv1({
+        serviceUrl: `https://router.project-osrm.org/route/v1`
+    })
+}).addTo(map);
+
 
 let quadrasLayer;
 let statusData = {};
@@ -57,16 +72,14 @@ window.marcarComo = function(novoStatus, id) {
     statusData[id] = novoStatus;
     
     // 2. Redesenha a camada de quadras para refletir a nova cor
-    quadrasLayer.setStyle(getStyle);
+    if (quadrasLayer) {
+        quadrasLayer.setStyle(getStyle);
+    }
     map.closePopup();
 
     // 3. Envia a atualização para o Google Sheets
     fetch(SCRIPT_URL, {
         method: 'POST',
-        mode: 'cors', // Necessário para chamadas entre domínios diferentes
-        headers: {
-            'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ id_quadra: id, status: novoStatus, usuario: 'user_app' }),
     })
     .then(response => response.json())
@@ -87,13 +100,20 @@ window.marcarComo = function(novoStatus, id) {
 // Carrega os dados e inicia a aplicação
 async function inicializar() {
     try {
+        const loadingPopup = L.popup({ closeButton: false, closeOnClick: false, autoClose: false })
+            .setLatLng(map.getCenter())
+            .setContent("Carregando dados das quadras...")
+            .openOn(map);
+
         // 1. Busca os status da planilha
-        const statusResponse = await fetch(SCRIPT_URL);
+        const statusResponse = await fetch(`${SCRIPT_URL}?v=${new Date().getTime()}`);
         statusData = await statusResponse.json();
 
         // 2. Busca o arquivo GeoJSON das quadras
         const quadrasResponse = await fetch('quadras.geojson');
         const quadrasGeoJSON = await quadrasResponse.json();
+        
+        map.closePopup(loadingPopup);
 
         // 3. Adiciona as quadras ao mapa
         quadrasLayer = L.geoJSON(quadrasGeoJSON, {
@@ -102,11 +122,14 @@ async function inicializar() {
         }).addTo(map);
 
         // Ajusta o zoom para mostrar todas as quadras
-        map.fitBounds(quadrasLayer.getBounds());
+        if (quadrasLayer.getBounds().isValid()) {
+            map.fitBounds(quadrasLayer.getBounds());
+        }
 
     } catch (error) {
         console.error("Erro ao inicializar o mapa:", error);
-        alert("Não foi possível carregar os dados das quadras. Tente novamente.");
+        map.closePopup();
+        alert("Não foi possível carregar os dados das quadras. Verifique sua conexão e se o arquivo 'quadras.geojson' existe.");
     }
 }
 
