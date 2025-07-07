@@ -4,17 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapa de Trabalho</title>
+    
+    <!-- CSS do Leaflet (Mapa) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    
+    <!-- CSS dos Plugins de Rota e Geocoder -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+    <!-- CSS da Aplicação -->
     <link rel="stylesheet" href="style.css">
+
+    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
-    <!-- Adicione no <head> -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
 </head>
 <body>
     <div id="map"></div>
+
+    <!-- JS do Leaflet (Mapa) - DEVE VIR PRIMEIRO -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- JS dos Plugins de Rota e Geocoder -->
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+    <!-- JS da Aplicação -->
     <script src="app.js"></script>
-    <!-- Adicione no final do <body>, depois do script do Leaflet -->
-<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 </body>
 </html>
