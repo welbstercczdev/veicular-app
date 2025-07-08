@@ -3,7 +3,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYD
 
 // Registra o Service Worker (para PWA)
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js') // Removido / inicial para compatibilidade
+    navigator.serviceWorker.register('service-worker.js')
         .then(reg => console.log('Service Worker registrado com sucesso!', reg))
         .catch(err => console.error('Erro ao registrar Service Worker:', err));
 }
@@ -16,29 +16,33 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
-// Adiciona o controle de rotas
+// Adiciona o controle de rotas com Geocoder configurado
 L.Routing.control({
     waypoints: [],
     routeWhileDragging: true,
     show: true,
-    // Garante que o geocoder do Nominatim está sendo usado
-    geocoder: L.Control.Geocoder.nominatim(), 
+    // --- INÍCIO DA CORREÇÃO ---
+    geocoder: L.Control.Geocoder.nominatim({
+        // Opções para o serviço de geocodificação Nominatim
+        geocodingQueryParams: {
+            "addressdetails": 1, // Pede detalhes do endereço
+            "format": "json"     // Garante que a resposta seja no formato correto
+        },
+        // Opções para o controle no mapa
+        placeholder: 'Digite um endereço ou local...',
+        defaultMarkGeocode: false // Impede que um marcador seja adicionado a cada busca
+    }),
+    // --- FIM DA CORREÇÃO ---
     router: L.Routing.osrmv1({
         serviceUrl: `https://router.project-osrm.org/route/v1`
     })
 }).addTo(map);
 
+
 // Variáveis globais
 let quadrasLayer;
 let statusData = {};
 
-// --- NOVA LÓGICA DE EXTRAÇÃO DE ID E ESTILO ---
-
-/**
- * Extrai o número da quadra da propriedade "title" (ex: "QUADRA: 398" -> 398)
- * @param {object} feature - A feature do GeoJSON
- * @returns {number|null} O ID da quadra ou nulo se não encontrar.
- */
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
         try {
@@ -52,12 +56,9 @@ function getQuadraId(feature) {
     return null;
 }
 
-// Função para definir a cor da quadra
 function getStyle(feature) {
     const id = getQuadraId(feature);
-    if (id === null) {
-        return { color: "#ff00ff", weight: 2 }; // Cor magenta para quadras com erro de ID
-    }
+    if (id === null) return { color: "#ff00ff", weight: 2 };
     const status = statusData[id] || 'Pendente';
     switch (status) {
         case 'Trabalhada': return { color: "#28a745", weight: 2, opacity: 0.8, fillOpacity: 0.5 };
@@ -66,31 +67,17 @@ function getStyle(feature) {
     }
 }
 
-// Função para quando uma quadra é clicada
 function onEachFeature(feature, layer) {
     const id = getQuadraId(feature);
-    
-    // Se não conseguirmos um ID, não fazemos nada para essa quadra
     if (id === null) {
         console.error("Quadra sem ID válido, clique desativado:", feature.properties);
         return;
     }
-
     layer.on('click', function(e) {
-        const popupContent = `
-            <b>Quadra: ${id}</b><br>
-            Status atual: ${statusData[id] || 'Pendente'}<br><br>
-            <button onclick="marcarComo('Trabalhada', ${id})">Marcar como Trabalhada</button>
-            <button onclick="marcarComo('Problema', ${id})">Marcar com Problema</button>
-        `;
-        L.popup()
-            .setLatLng(e.latlng)
-            .setContent(popupContent)
-            .openOn(map);
+        const popupContent = `<b>Quadra: ${id}</b><br>Status atual: ${statusData[id] || 'Pendente'}<br><br><button onclick="marcarComo('Trabalhada', ${id})">Marcar como Trabalhada</button><button onclick="marcarComo('Problema', ${id})">Marcar com Problema</button>`;
+        L.popup().setLatLng(e.latlng).setContent(popupContent).openOn(map);
     });
 }
-
-// --- FUNÇÕES DE INTERAÇÃO E INICIALIZAÇÃO (sem grandes mudanças) ---
 
 window.marcarComo = function(novoStatus, id) {
     console.log(`Marcando quadra ${id} como ${novoStatus}`);
@@ -104,9 +91,8 @@ window.marcarComo = function(novoStatus, id) {
     })
     .then(response => response.json())
     .then(data => {
-        if(data.success) {
-            console.log("Status salvo com sucesso!");
-        } else {
+        if(data.success) console.log("Status salvo com sucesso!");
+        else {
             console.error("Erro ao salvar status:", data.message);
             alert("Erro ao salvar. Verifique sua conexão.");
         }
@@ -140,18 +126,10 @@ async function carregarArea(areaId) {
     try {
         const quadrasResponse = await fetch(`data/${areaId}.geojson?v=${new Date().getTime()}`);
         if (!quadrasResponse.ok) throw new Error(`Arquivo data/${areaId}.geojson não encontrado.`);
-        
         const quadrasGeoJSON = await quadrasResponse.json();
         map.closePopup(loadingPopup);
-
-        quadrasLayer = L.geoJSON(quadrasGeoJSON, {
-            style: getStyle,
-            onEachFeature: onEachFeature
-        }).addTo(map);
-
-        if (quadrasLayer.getBounds().isValid()) {
-            map.fitBounds(quadrasLayer.getBounds());
-        }
+        quadrasLayer = L.geoJSON(quadrasGeoJSON, { style: getStyle, onEachFeature: onEachFeature }).addTo(map);
+        if (quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
     } catch (error) {
         console.error("Erro ao carregar a área:", error);
         map.closePopup(loadingPopup);
