@@ -3,13 +3,15 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYD
 
 // Registra o Service Worker (para PWA)
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js')
+    navigator.serviceWorker.register('service-worker.js') // Removido / inicial para compatibilidade
         .then(reg => console.log('Service Worker registrado com sucesso!', reg))
         .catch(err => console.error('Erro ao registrar Service Worker:', err));
 }
 
-// Inicializa o mapa e o mapa base (OpenStreetMap)
+// Inicializa o mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
+
+// Adiciona o mapa base
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
@@ -27,9 +29,32 @@ L.Routing.control({
 let quadrasLayer;
 let statusData = {};
 
-// Função para definir a cor da quadra com base no status
+// --- NOVA LÓGICA DE EXTRAÇÃO DE ID E ESTILO ---
+
+/**
+ * Extrai o número da quadra da propriedade "title" (ex: "QUADRA: 398" -> 398)
+ * @param {object} feature - A feature do GeoJSON
+ * @returns {number|null} O ID da quadra ou nulo se não encontrar.
+ */
+function getQuadraId(feature) {
+    if (feature.properties && feature.properties.title) {
+        try {
+            const idString = feature.properties.title.replace('QUADRA:', '').trim();
+            return parseInt(idString, 10);
+        } catch (e) {
+            console.error("Erro ao extrair ID de:", feature.properties.title);
+            return null;
+        }
+    }
+    return null;
+}
+
+// Função para definir a cor da quadra
 function getStyle(feature) {
-    const id = feature.properties.id_quadra;
+    const id = getQuadraId(feature);
+    if (id === null) {
+        return { color: "#ff00ff", weight: 2 }; // Cor magenta para quadras com erro de ID
+    }
     const status = statusData[id] || 'Pendente';
     switch (status) {
         case 'Trabalhada': return { color: "#28a745", weight: 2, opacity: 0.8, fillOpacity: 0.5 };
@@ -38,23 +63,17 @@ function getStyle(feature) {
     }
 }
 
-// Função para quando uma quadra é clicada - COM DIAGNÓSTICO
+// Função para quando uma quadra é clicada
 function onEachFeature(feature, layer) {
-    // PISTA 1: Verifica se esta função está sendo chamada para cada quadra
-    console.log("Anexando evento para a quadra:", feature.properties.id_quadra);
-
-    // Garante que temos um ID antes de prosseguir
-    if (!feature.properties || !feature.properties.id_quadra) {
-        console.error("ERRO: Uma das quadras no GeoJSON está sem a propriedade 'id_quadra'.", feature);
-        return; // Pula esta quadra para não quebrar o resto
+    const id = getQuadraId(feature);
+    
+    // Se não conseguirmos um ID, não fazemos nada para essa quadra
+    if (id === null) {
+        console.error("Quadra sem ID válido, clique desativado:", feature.properties);
+        return;
     }
 
-    const id = feature.properties.id_quadra;
-    
     layer.on('click', function(e) {
-        // PISTA 2: Verifica se o evento de clique está sendo disparado
-        console.log("CLIQUE DETECTADO! Quadra ID:", id);
-
         const popupContent = `
             <b>Quadra: ${id}</b><br>
             Status atual: ${statusData[id] || 'Pendente'}<br><br>
@@ -68,13 +87,12 @@ function onEachFeature(feature, layer) {
     });
 }
 
-// Função global para ser chamada pelos botões do popup
+// --- FUNÇÕES DE INTERAÇÃO E INICIALIZAÇÃO (sem grandes mudanças) ---
+
 window.marcarComo = function(novoStatus, id) {
     console.log(`Marcando quadra ${id} como ${novoStatus}`);
     statusData[id] = novoStatus;
-    if (quadrasLayer) {
-        quadrasLayer.setStyle(getStyle);
-    }
+    if (quadrasLayer) quadrasLayer.setStyle(getStyle);
     map.closePopup();
 
     fetch(SCRIPT_URL, {
@@ -83,8 +101,8 @@ window.marcarComo = function(novoStatus, id) {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            console.log("Status salvo com sucesso!", data.message);
+        if(data.success) {
+            console.log("Status salvo com sucesso!");
         } else {
             console.error("Erro ao salvar status:", data.message);
             alert("Erro ao salvar. Verifique sua conexão.");
@@ -92,11 +110,10 @@ window.marcarComo = function(novoStatus, id) {
     })
     .catch(error => {
         console.error('Erro de rede ao salvar:', error);
-        alert("Erro de rede ao salvar. A alteração será perdida.");
+        alert("Erro de rede ao salvar.");
     });
 }
 
-// Função para gerar o menu de áreas dinamicamente
 function popularSeletorDeAreas() {
     const seletor = document.getElementById('area-selector');
     const totalDeAreas = 109;
@@ -108,43 +125,37 @@ function popularSeletorDeAreas() {
     }
 }
 
-// Adiciona um "ouvinte" para o seletor de área
-document.getElementById('area-selector').addEventListener('change', function(e) {
+document.getElementById('area-selector').addEventListener('change', e => {
     const areaId = e.target.value;
-    if (areaId) {
-        carregarArea(areaId);
-    }
+    if (areaId) carregarArea(areaId);
 });
 
-// Função principal para carregar os dados de uma área específica
 async function carregarArea(areaId) {
     if (quadrasLayer) map.removeLayer(quadrasLayer);
-    const loadingPopup = L.popup({ closeButton: false, autoClose: false }).setLatLng(map.getCenter()).setContent(`Carregando dados da Área ${areaId}...`).openOn(map);
+    const loadingPopup = L.popup({ closeButton: false, autoClose: false }).setLatLng(map.getCenter()).setContent(`Carregando Área ${areaId}...`).openOn(map);
 
     try {
         const quadrasResponse = await fetch(`data/${areaId}.geojson?v=${new Date().getTime()}`);
-        if (!quadrasResponse.ok) throw new Error(`Arquivo data/${areaId}.geojson não encontrado (erro 404).`);
+        if (!quadrasResponse.ok) throw new Error(`Arquivo data/${areaId}.geojson não encontrado.`);
         
         const quadrasGeoJSON = await quadrasResponse.json();
-        console.log(`GeoJSON da Área ${areaId} carregado com sucesso.`, quadrasGeoJSON);
         map.closePopup(loadingPopup);
 
         quadrasLayer = L.geoJSON(quadrasGeoJSON, {
             style: getStyle,
-            onEachFeature: onEachFeature // Esta linha é crucial para o clique funcionar
+            onEachFeature: onEachFeature
         }).addTo(map);
 
         if (quadrasLayer.getBounds().isValid()) {
             map.fitBounds(quadrasLayer.getBounds());
         }
     } catch (error) {
-        console.error("Erro CRÍTICO ao carregar a área:", error);
+        console.error("Erro ao carregar a área:", error);
         map.closePopup(loadingPopup);
-        alert(`Não foi possível carregar os dados da área: ${error.message}`);
+        alert(`Erro ao carregar dados: ${error.message}`);
     }
 }
 
-// Função que roda uma única vez no início para carregar os status
 async function inicializarStatus() {
     try {
         const statusResponse = await fetch(`${SCRIPT_URL}?v=${new Date().getTime()}`);
@@ -156,11 +167,9 @@ async function inicializarStatus() {
     }
 }
 
-// Função para iniciar a aplicação
 function iniciarApp() {
     popularSeletorDeAreas();
     inicializarStatus();
 }
 
-// Inicia a aplicação
 iniciarApp();
