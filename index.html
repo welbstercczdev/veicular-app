@@ -5,39 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapa de Trabalho</title>
     
-    <!-- CSS do Leaflet (Mapa) -->
+    <!-- 1. CSS do Leaflet (Mapa) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     
-    <!-- CSS dos Plugins de Rota e Geocoder -->
+    <!-- 2. CSS dos Plugins de Rota e Geocoder -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
 
     <!-- CSS da sua Aplicação -->
     <link rel="stylesheet" href="style.css">
 
-    <!-- PWA Manifest - Essencial para ser um App instalável -->
+    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
 
-    <!-- Container para o seletor de Área de Trabalho -->
     <div id="controls">
         <label for="area-selector">Escolha a Área de Trabalho:</label>
-        <!-- O JavaScript vai preencher as opções de área aqui -->
         <select id="area-selector">
             <option value="">Selecione...</option>
         </select>
     </div>
 
-    <!-- Container onde o mapa será renderizado -->
     <div id="map"></div>
 
-    <!-- SCRIPTS - A ORDEM É IMPORTANTE -->
+    <!-- SCRIPTS - A ORDEM É CRUCIAL -->
 
     <!-- 1. JS do Leaflet (Mapa) - DEVE VIR PRIMEIRO -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- 2. JS dos Plugins de Rota e Geocoder -->
+    <!-- 2. JS dos Plugins de Rota e Geocoder - DEVEM VIR DEPOIS DO LEAFLET -->
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
