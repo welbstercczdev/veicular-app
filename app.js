@@ -16,23 +16,57 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
-// Adiciona o controle de rotas com Geocoder configurado
-L.Routing.control({
+
+// --- NOVA LÓGICA DE ROTAS E BUSCA ---
+
+// 1. Crie o controle de rotas sem inputs de busca. Ele apenas mostrará a rota.
+const routingControl = L.Routing.control({
     waypoints: [],
     routeWhileDragging: true,
-    show: true,
-    geocoder: L.Control.Geocoder.nominatim({
-        geocodingQueryParams: {
-            "addressdetails": 1,
-            "format": "json"
-        }
-    }),
+    addWaypoints: true,
     router: L.Routing.osrmv1({
         serviceUrl: `https://router.project-osrm.org/route/v1`
-    })
+    }),
+    show: true,
+    createMarker: function() { return null; }
 }).addTo(map);
 
-// Variáveis globais
+// 2. Crie o controle de BUSCA DE ENDEREÇO separado
+const geocoder = L.Control.geocoder({
+    placeholder: 'Buscar endereço para rota...',
+    defaultMarkGeocode: false,
+    geocoder: new L.Control.Geocoder.Nominatim({
+        geocodingQueryParams: {
+            "countrycodes": "br",
+            "limit": 5
+        }
+    })
+})
+.on('markgeocode', function(e) {
+    const result = e.geocode;
+    const center = result.center;
+    const name = result.name;
+
+    const waypoints = routingControl.getWaypoints();
+    const nonEmptyWaypoints = waypoints.filter(wp => wp.latLng);
+
+    if (nonEmptyWaypoints.length < 2) {
+        routingControl.spliceWaypoints(nonEmptyWaypoints.length, 1, {
+            latLng: center,
+            name: name
+        });
+    } else {
+        routingControl.spliceWaypoints(nonEmptyWaypoints.length - 1, 1, {
+            latLng: center,
+            name: name
+        });
+    }
+    map.panTo(center);
+})
+.addTo(map);
+
+// --- FIM DA NOVA LÓGICA ---
+
 let quadrasLayer;
 let statusData = {};
 
