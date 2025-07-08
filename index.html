@@ -5,12 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapa de Trabalho</title>
     
-    <!-- 1. CSS do Leaflet (Mapa) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    
-    <!-- 2. CSS dos Plugins de Rota e Geocoder -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <!-- CSS - Usando versões específicas e estáveis -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@1.13.0/dist/Control.Geocoder.css" />
 
     <!-- CSS da sua Aplicação -->
     <link rel="stylesheet" href="style.css">
@@ -29,16 +27,17 @@
 
     <div id="map"></div>
 
-    <!-- SCRIPTS - A ORDEM É CRUCIAL -->
+    <!-- SCRIPTS - Usando versões específicas e estáveis -->
+    <!-- A ORDEM É CRUCIAL -->
 
-    <!-- 1. JS do Leaflet (Mapa) - DEVE VIR PRIMEIRO -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- 1. JS do Leaflet (Mapa) -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
-    <!-- 2. JS dos Plugins de Rota e Geocoder - DEVEM VIR DEPOIS DO LEAFLET -->
-    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <!-- 2. JS dos Plugins -->
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder@1.13.0/dist/Control.Geocoder.js"></script>
 
-    <!-- 3. JS da sua Aplicação - DEVE SER O ÚLTIMO -->
+    <!-- 3. JS da sua Aplicação -->
     <script src="app.js"></script>
 </body>
 </html>
