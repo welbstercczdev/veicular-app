@@ -3,3 +3,7 @@ body { margin: 0; padding: 0; }
 .leaflet-popup-content-wrapper {
     border-radius: 5px;
 }
+/* Adicione esta regra ao final do seu style.css */
+.leaflet-routing-geocoders {
+    display: none !important;
+}
