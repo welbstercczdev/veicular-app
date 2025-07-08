@@ -16,34 +16,21 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
-// --- CÓDIGO DE TESTE TEMPORÁRIO ---
-L.Control.geocoder({
-    placeholder: 'Teste de busca...'
-}).addTo(map);
-// --- FIM DO CÓDIGO DE TESTE ---
-
 // Adiciona o controle de rotas com Geocoder configurado
 L.Routing.control({
     waypoints: [],
     routeWhileDragging: true,
     show: true,
-    // --- INÍCIO DA CORREÇÃO ---
     geocoder: L.Control.Geocoder.nominatim({
-        // Opções para o serviço de geocodificação Nominatim
         geocodingQueryParams: {
-            "addressdetails": 1, // Pede detalhes do endereço
-            "format": "json"     // Garante que a resposta seja no formato correto
-        },
-        // Opções para o controle no mapa
-        placeholder: 'Digite um endereço ou local...',
-        defaultMarkGeocode: false // Impede que um marcador seja adicionado a cada busca
+            "addressdetails": 1,
+            "format": "json"
+        }
     }),
-    // --- FIM DA CORREÇÃO ---
     router: L.Routing.osrmv1({
         serviceUrl: `https://router.project-osrm.org/route/v1`
     })
 }).addTo(map);
-
 
 // Variáveis globais
 let quadrasLayer;
