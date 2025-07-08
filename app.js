@@ -21,8 +21,11 @@ L.Routing.control({
     waypoints: [],
     routeWhileDragging: true,
     show: true,
-    geocoder: L.Control.Geocoder.nominatim(),
-    router: L.Routing.osrmv1({ serviceUrl: `https://router.project-osrm.org/route/v1` })
+    // Garante que o geocoder do Nominatim está sendo usado
+    geocoder: L.Control.Geocoder.nominatim(), 
+    router: L.Routing.osrmv1({
+        serviceUrl: `https://router.project-osrm.org/route/v1`
+    })
 }).addTo(map);
 
 // Variáveis globais
