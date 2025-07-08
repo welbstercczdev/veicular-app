@@ -16,6 +16,12 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
+// --- CÓDIGO DE TESTE TEMPORÁRIO ---
+L.Control.geocoder({
+    placeholder: 'Teste de busca...'
+}).addTo(map);
+// --- FIM DO CÓDIGO DE TESTE ---
+
 // Adiciona o controle de rotas com Geocoder configurado
 L.Routing.control({
     waypoints: [],
