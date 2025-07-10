@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Atividades</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    <style>
+        body { font-family: sans-serif; display: flex; height: 100vh; margin: 0; }
+        #map { flex-grow: 1; height: 100%; }
+        #sidebar { width: 300px; padding: 15px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); overflow-y: auto; }
+        #sidebar h3 { margin-top: 0; }
+        #quadras-list { list-style: none; padding: 0; }
+        button { width: 100%; padding: 10px; margin-top: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        input { width: calc(100% - 10px); padding: 5px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h3>Nova Atividade</h3>
+        <label for="atividade-id">ID da Atividade:</label>
+        <input type="text" id="atividade-id" placeholder="Ex: 2023-001">
+        
+        <label for="area-selector">Carregar Área:</label>
+        <select id="area-selector">
+            <option value="">Selecione uma área...</option>
+        </select>
+        
+        <hr>
+        <h4>Quadras Selecionadas (<span id="count">0</span>)</h4>
+        <ul id="quadras-list"></ul>
+
+        <button id="save-activity">Salvar Atividade</button>
+    </div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="gestor.js"></script>
+</body>
+</html>
