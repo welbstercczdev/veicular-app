@@ -17,9 +17,9 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 
-// --- NOVA LÓGICA DE ROTAS E BUSCA ---
+// --- LÓGICA DE ROTAS E BUSCA (VERSÃO FINAL) ---
 
-// 1. Crie o controle de rotas sem inputs de busca. Ele apenas mostrará a rota.
+// 1. Crie o controle de rotas que apenas exibirá o resultado.
 const routingControl = L.Routing.control({
     waypoints: [],
     routeWhileDragging: true,
@@ -31,18 +31,20 @@ const routingControl = L.Routing.control({
     createMarker: function() { return null; }
 }).addTo(map);
 
-// 2. Crie o controle de BUSCA DE ENDEREÇO separado
+// 2. Crie o controle de BUSCA DE ENDEREÇO separado, forçando o URL do serviço.
 const geocoder = L.Control.geocoder({
     placeholder: 'Buscar endereço para rota...',
     defaultMarkGeocode: false,
     geocoder: new L.Control.Geocoder.Nominatim({
+        serviceUrl: 'https://nominatim.openstreetmap.org/', // Linha crucial
         geocodingQueryParams: {
-            "countrycodes": "br",
+            "countrycodes": "br", // Ajuda a priorizar resultados do Brasil
             "limit": 5
         }
     })
 })
 .on('markgeocode', function(e) {
+    // 3. Quando um endereço é selecionado, adiciona à rota
     const result = e.geocode;
     const center = result.center;
     const name = result.name;
@@ -51,22 +53,17 @@ const geocoder = L.Control.geocoder({
     const nonEmptyWaypoints = waypoints.filter(wp => wp.latLng);
 
     if (nonEmptyWaypoints.length < 2) {
-        routingControl.spliceWaypoints(nonEmptyWaypoints.length, 1, {
-            latLng: center,
-            name: name
-        });
+        routingControl.spliceWaypoints(nonEmptyWaypoints.length, 1, { latLng: center, name: name });
     } else {
-        routingControl.spliceWaypoints(nonEmptyWaypoints.length - 1, 1, {
-            latLng: center,
-            name: name
-        });
+        routingControl.spliceWaypoints(nonEmptyWaypoints.length - 1, 1, { latLng: center, name: name });
     }
     map.panTo(center);
 })
 .addTo(map);
 
-// --- FIM DA NOVA LÓGICA ---
+// --- FIM DA LÓGICA DE ROTAS ---
 
+// O resto do seu código que já está funcionando
 let quadrasLayer;
 let statusData = {};
 
