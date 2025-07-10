@@ -8,28 +8,60 @@
     <style>
         body { font-family: sans-serif; display: flex; height: 100vh; margin: 0; }
         #map { flex-grow: 1; height: 100%; }
-        #sidebar { width: 300px; padding: 15px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); overflow-y: auto; }
-        #sidebar h3 { margin-top: 0; }
-        #quadras-list { list-style: none; padding: 0; }
-        button { width: 100%; padding: 10px; margin-top: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; }
+        #sidebar { width: 350px; padding: 15px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); overflow-y: auto; display: flex; flex-direction: column; }
+        #sidebar h3, #sidebar h4 { margin-top: 0; }
+        #quadras-container { flex-grow: 1; overflow-y: auto; border: 1px solid #ccc; padding: 5px; margin-bottom: 10px; }
+        #quadras-list { list-style: none; padding: 0; margin: 0;}
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; margin-top: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
         button:hover { background-color: #0056b3; }
-        input { width: calc(100% - 10px); padding: 5px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
     <div id="sidebar">
-        <h3>Nova Atividade</h3>
-        <label for="atividade-id">ID da Atividade:</label>
-        <input type="text" id="atividade-id" placeholder="Ex: 2023-001">
+        <div>
+            <h3>Nova Atividade</h3>
+            <div class="form-group">
+                <label for="atividade-id">ID da Atividade:</label>
+                <input type="text" id="atividade-id" placeholder="Ex: 2023-001">
+            </div>
+            
+            <!-- NOVOS CAMPOS -->
+            <div class="form-group">
+                <label for="veiculo-select">Veículo:</label>
+                <select id="veiculo-select">
+                    <option value="">Selecione um veículo...</option>
+                    <option value="MONTANA - QUR4951">MONTANA - QUR4951</option>
+                    <option value="OROCH - SYY0I07">OROCH - SYY0I07</option>
+                    <option value="OROCH - SYY0H46">OROCH - SYY0H46</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="produto-select">Produto Químico:</label>
+                <select id="produto-select">
+                    <option value="">Selecione um produto...</option>
+                    <option value="CIELO">CIELO</option>
+                    <option value="VECTOBAC">VECTOBAC</option>
+                </select>
+            </div>
+            <!-- FIM DOS NOVOS CAMPOS -->
+            
+            <div class="form-group">
+                <label for="area-selector">Carregar Área para Seleção:</label>
+                <select id="area-selector">
+                    <option value="">Selecione uma área...</option>
+                </select>
+            </div>
+            
+            <hr>
+            <h4>Quadras Selecionadas (<span id="count">0</span>)</h4>
+        </div>
         
-        <label for="area-selector">Carregar Área:</label>
-        <select id="area-selector">
-            <option value="">Selecione uma área...</option>
-        </select>
-        
-        <hr>
-        <h4>Quadras Selecionadas (<span id="count">0</span>)</h4>
-        <ul id="quadras-list"></ul>
+        <div id="quadras-container">
+            <ul id="quadras-list"></ul>
+        </div>
 
         <button id="save-activity">Salvar Atividade</button>
     </div>
