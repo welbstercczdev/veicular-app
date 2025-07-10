@@ -1,49 +1,73 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
 const TOTAL_AREAS = 109;
 
+// Inicializa o mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
 
+// Variáveis globais
 let quadrasLayer;
-const selectedQuadras = new Map();
+const selectedQuadras = new Map(); // Usamos um Map para armazenar o objeto {id, area}
+
+// Elementos da DOM para evitar buscas repetidas
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
+const areaSelector = document.getElementById('area-selector');
 
-// --- Funções para extrair IDs (sem mudanças) ---
+/**
+ * Extrai o ID numérico da quadra a partir da propriedade "title" do GeoJSON.
+ * @param {object} feature - O objeto 'feature' do GeoJSON.
+ * @returns {number|null}
+ */
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
-        return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10);
+        try {
+            const idString = feature.properties.title.replace('QUADRA:', '').trim();
+            return parseInt(idString, 10);
+        } catch (e) {
+            console.error("Não foi possível extrair o ID da quadra de:", feature.properties.title);
+            return null;
+        }
     }
     return null;
 }
 
+/**
+ * Extrai o ID numérico da área a partir da propriedade "description" do GeoJSON.
+ * @param {object} feature - O objeto 'feature' do GeoJSON.
+ * @returns {number|null}
+ */
 function getAreaId(feature) {
-    if(feature.properties && feature.properties.description){
-        return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10);
+    if (feature.properties && feature.properties.description) {
+        try {
+            const areaString = feature.properties.description.replace('ÁREA:', '').trim();
+            return parseInt(areaString, 10);
+        } catch(e) {
+            console.error("Não foi possível extrair o ID da área de:", feature.properties.description);
+            return null;
+        }
     }
     return null;
 }
-
-// --- Funções de Interface (COM MELHORIAS) ---
 
 /**
  * Atualiza a barra lateral com a lista de quadras selecionadas.
- * Adiciona um botão "Remover" para cada item da lista.
+ * Adiciona um botão "Remover" para cada item.
  */
 function updateSidebar() {
-    quadrasSelecionadasList.innerHTML = ''; // Limpa a lista
+    quadrasSelecionadasList.innerHTML = ''; // Limpa a lista para reconstruir
     
-    // Transforma o Map em um array, ordena por área e depois por quadra
+    // Converte o Map para um array, e ordena por área e depois por quadra para uma exibição consistente
     const sortedQuadras = Array.from(selectedQuadras.values()).sort((a, b) => {
-        if (a.area !== b.area) {
-            return a.area - b.area;
-        }
+        if (a.area !== b.area) return a.area - b.area;
         return a.id - b.id;
     });
 
     sortedQuadras.forEach((quadra) => {
         const li = document.createElement('li');
-        li.style = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;';
+        li.style = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; padding: 2px;';
         
         const text = document.createElement('span');
         text.textContent = `Área ${quadra.area} - Quadra ${quadra.id}`;
@@ -52,13 +76,9 @@ function updateSidebar() {
         removeBtn.textContent = 'X';
         removeBtn.style = 'width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px;';
         
-        // Ação de clique no botão de remover
         removeBtn.onclick = () => {
-            // Remove a quadra do set de seleção
             selectedQuadras.delete(quadra.id);
-            // Redesenha a camada do mapa para refletir a remoção
             quadrasLayer.setStyle(getStyleForFeature);
-            // Atualiza a barra lateral novamente
             updateSidebar();
         };
         
@@ -71,7 +91,8 @@ function updateSidebar() {
 }
 
 /**
- * Função de estilo que será chamada para cada quadra, determinando sua cor.
+ * Define o estilo (cor) de cada quadra com base em se ela está selecionada ou não.
+ * @param {object} feature - O objeto 'feature' do GeoJSON.
  */
 function getStyleForFeature(feature) {
     const id = getQuadraId(feature);
@@ -83,11 +104,14 @@ function getStyleForFeature(feature) {
 
 /**
  * Função chamada quando uma quadra é clicada no mapa.
+ * Adiciona ou remove a quadra da seleção.
  */
 function onQuadraClick(e) {
     const layer = e.target;
     const id = getQuadraId(layer.feature);
     const area = getAreaId(layer.feature);
+
+    if (id === null || area === null) return; // Não faz nada se os IDs não puderem ser extraídos
 
     if (selectedQuadras.has(id)) {
         selectedQuadras.delete(id);
@@ -95,78 +119,101 @@ function onQuadraClick(e) {
         selectedQuadras.set(id, { id: id, area: area });
     }
     
-    // Em vez de estilizar apenas a camada clicada, re-estilizamos toda a camada
-    // para garantir consistência, especialmente após a remoção pela barra lateral.
-    quadrasLayer.setStyle(getStyleForFeature);
+    // Re-aplica o estilo em toda a camada para garantir a atualização visual
+    layer.setStyle(getStyleForFeature(layer.feature));
     updateSidebar();
 }
 
-// --- Funções de Carregamento e Salvamento (sem mudanças na lógica principal) ---
-
-document.getElementById('area-selector').addEventListener('change', async (e) => {
+/**
+ * Carrega as quadras de uma área específica no mapa.
+ */
+areaSelector.addEventListener('change', async (e) => {
     const areaId = e.target.value;
     if (!areaId) return;
 
     if (quadrasLayer) {
-        // Antes de remover a camada antiga, salve suas features para não perder a seleção
-        quadrasLayer.eachLayer(layer => {
-            if (selectedQuadras.has(getQuadraId(layer.feature))) {
-                // Se já estiver selecionada, não precisa fazer nada
-            }
-        });
         map.removeLayer(quadrasLayer);
     }
 
-    const quadrasResponse = await fetch(`data/${areaId}.geojson`);
-    const quadrasGeoJSON = await quadrasResponse.json();
-    
-    quadrasLayer = L.geoJSON(quadrasGeoJSON, {
-        style: getStyleForFeature, // Usa a nova função de estilo
-        onEachFeature: (feature, layer) => { layer.on('click', onQuadraClick); }
-    }).addTo(map);
+    try {
+        const quadrasResponse = await fetch(`data/${areaId}.geojson`);
+        if (!quadrasResponse.ok) throw new Error(`Arquivo da Área ${areaId} não encontrado.`);
+        
+        const quadrasGeoJSON = await quadrasResponse.json();
+        
+        quadrasLayer = L.geoJSON(quadrasGeoJSON, {
+            style: getStyleForFeature,
+            onEachFeature: (feature, layer) => { layer.on('click', onQuadraClick); }
+        }).addTo(map);
 
-    if(quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
+        if(quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
+
+    } catch (error) {
+        alert(`Erro ao carregar dados da área: ${error.message}`);
+    }
 });
 
+/**
+ * Ação do botão "Salvar Atividade". Coleta todos os dados e envia para o Apps Script.
+ */
 document.getElementById('save-activity').addEventListener('click', async () => {
-    // Esta função permanece a mesma da versão anterior
-    const id_atividade = document.getElementById('atividade-id').value;
-    if (!id_atividade) {
-        alert("Por favor, insira um ID para a atividade.");
+    const id_atividade = document.getElementById('atividade-id').value.trim();
+    const veiculo = document.getElementById('veiculo-select').value;
+    const produto = document.getElementById('produto-select').value;
+
+    if (!id_atividade || !veiculo || !produto) {
+        alert("Por favor, preencha o ID da atividade, o veículo e o produto.");
         return;
     }
     if (selectedQuadras.size === 0) {
-        alert("Selecione pelo menos uma quadra no mapa.");
+        alert("Selecione pelo menos uma quadra no mapa para atribuir.");
         return;
     }
 
     const payload = {
         action: 'createActivity',
         id_atividade: id_atividade,
+        veiculo: veiculo,
+        produto: produto,
         quadras: Array.from(selectedQuadras.values())
     };
 
     try {
-        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
         const result = await response.json();
+
         if (result.success) {
             alert(result.message);
+            // Limpa o formulário e a seleção para uma nova atividade
+            document.getElementById('atividade-id').value = '';
+            document.getElementById('veiculo-select').value = '';
+            document.getElementById('produto-select').value = '';
             selectedQuadras.clear();
-            quadrasLayer.setStyle(getStyleForFeature);
+            if (quadrasLayer) quadrasLayer.setStyle(getStyleForFeature);
             updateSidebar();
         } else {
-            alert(`Erro: ${result.message}`);
+            alert(`Erro ao salvar no backend: ${result.message}`);
         }
     } catch (error) {
-        alert("Erro de comunicação ao salvar a atividade.");
+        alert("Erro de comunicação. Verifique sua conexão e o console.");
+        console.error('Save Activity Error:', error);
     }
 });
 
-// Preencher o seletor de áreas
-const areaSelector = document.getElementById('area-selector');
-for (let i = 1; i <= TOTAL_AREAS; i++) {
-    const option = document.createElement('option');
-    option.value = i;
-    option.textContent = `Área ${i}`;
-    areaSelector.appendChild(option);
+/**
+ * Preenche o menu de seleção de áreas na inicialização.
+ */
+function popularSeletorDeAreas() {
+    for (let i = 1; i <= TOTAL_AREAS; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = `Área ${i}`;
+        areaSelector.appendChild(option);
+    }
 }
+
+// Inicia a aplicação do gestor
+popularSeletorDeAreas();
