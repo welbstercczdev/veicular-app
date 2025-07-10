@@ -1,26 +1,18 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
 const TOTAL_AREAS = 109;
 
-// Inicializa o mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
-// Variáveis globais
 let quadrasLayer;
-const selectedQuadras = new Map(); // Usamos um Map para armazenar o objeto {id, area}
+const selectedQuadras = new Map();
 
-// Elementos da DOM para evitar buscas repetidas
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
 
-/**
- * Extrai o ID numérico da quadra a partir da propriedade "title" do GeoJSON.
- * @param {object} feature - O objeto 'feature' do GeoJSON.
- * @returns {number|null}
- */
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
         try {
@@ -34,11 +26,6 @@ function getQuadraId(feature) {
     return null;
 }
 
-/**
- * Extrai o ID numérico da área a partir da propriedade "description" do GeoJSON.
- * @param {object} feature - O objeto 'feature' do GeoJSON.
- * @returns {number|null}
- */
 function getAreaId(feature) {
     if(feature.properties && feature.properties.description){
         try {
@@ -52,14 +39,9 @@ function getAreaId(feature) {
     return null;
 }
 
-/**
- * Atualiza a barra lateral com a lista de quadras selecionadas.
- * Adiciona um botão "Remover" para cada item.
- */
 function updateSidebar() {
-    quadrasSelecionadasList.innerHTML = ''; // Limpa a lista para reconstruir
+    quadrasSelecionadasList.innerHTML = '';
     
-    // Converte o Map para um array, e ordena por área e depois por quadra para uma exibição consistente
     const sortedQuadras = Array.from(selectedQuadras.values()).sort((a, b) => {
         if (a.area !== b.area) return a.area - b.area;
         return a.id - b.id;
@@ -78,7 +60,7 @@ function updateSidebar() {
         
         removeBtn.onclick = () => {
             selectedQuadras.delete(quadra.id);
-            if(quadrasLayer) { // Verifica se a camada existe antes de estilizar
+            if(quadrasLayer) {
                 quadrasLayer.setStyle(getStyleForFeature);
             }
             updateSidebar();
@@ -92,22 +74,14 @@ function updateSidebar() {
     countSpan.textContent = selectedQuadras.size;
 }
 
-/**
- * Define o estilo (cor) de cada quadra com base em se ela está selecionada ou não.
- * @param {object} feature - O objeto 'feature' do GeoJSON.
- */
 function getStyleForFeature(feature) {
     const id = getQuadraId(feature);
     if (selectedQuadras.has(id)) {
-        return { color: '#ffc107', weight: 2, fillOpacity: 0.7 }; // Amarelo (selecionado)
+        return { color: '#ffc107', weight: 2, fillOpacity: 0.7 };
     }
-    return { color: '#6c757d', weight: 1, opacity: 0.7, fillOpacity: 0.3 }; // Cinza (padrão)
+    return { color: '#6c757d', weight: 1, opacity: 0.7, fillOpacity: 0.3 };
 }
 
-/**
- * Função chamada quando uma quadra é clicada no mapa.
- * Adiciona ou remove a quadra da seleção.
- */
 function onQuadraClick(e) {
     const layer = e.target;
     const id = getQuadraId(layer.feature);
@@ -121,14 +95,10 @@ function onQuadraClick(e) {
         selectedQuadras.set(id, { id: id, area: area });
     }
     
-    // Atualiza o estilo da camada clicada
     layer.setStyle(getStyleForFeature(layer.feature));
     updateSidebar();
 }
 
-/**
- * Carrega as quadras de uma área específica no mapa.
- */
 areaSelector.addEventListener('change', async (e) => {
     const areaId = e.target.value;
     if (!areaId) return;
@@ -138,7 +108,7 @@ areaSelector.addEventListener('change', async (e) => {
     }
 
     try {
-        const quadrasResponse = await fetch(`data/${areaId}.geojson`);
+        const quadrasResponse = await fetch(`data/${areaId}.geojson?v=${new Date().getTime()}`);
         if (!quadrasResponse.ok) throw new Error(`Arquivo da Área ${areaId} não encontrado.`);
         
         const quadrasGeoJSON = await quadrasResponse.json();
@@ -155,9 +125,6 @@ areaSelector.addEventListener('change', async (e) => {
     }
 });
 
-/**
- * Ação do botão "Salvar Atividade". Coleta todos os dados e envia para o Apps Script.
- */
 document.getElementById('save-activity').addEventListener('click', async () => {
     const id_atividade = document.getElementById('atividade-id').value.trim();
     const veiculo = document.getElementById('veiculo-select').value;
@@ -189,7 +156,6 @@ document.getElementById('save-activity').addEventListener('click', async () => {
 
         if (result.success) {
             alert(result.message);
-            // Limpa o formulário e a seleção para uma nova atividade
             document.getElementById('atividade-id').value = '';
             document.getElementById('veiculo-select').value = '';
             document.getElementById('produto-select').value = '';
@@ -200,14 +166,11 @@ document.getElementById('save-activity').addEventListener('click', async () => {
             alert(`Erro ao salvar no backend: ${result.message}`);
         }
     } catch (error) {
-        alert("Erro de comunicação. Verifique a conexão e o console do navegador para mais detalhes.");
+        alert("Erro de comunicação. Verifique a conexão e o console para mais detalhes.");
         console.error('Save Activity Error:', error);
     }
 });
 
-/**
- * Preenche o menu de seleção de áreas na inicialização.
- */
 function popularSeletorDeAreas() {
     for (let i = 1; i <= TOTAL_AREAS; i++) {
         const option = document.createElement('option');
@@ -217,5 +180,4 @@ function popularSeletorDeAreas() {
     }
 }
 
-// Inicia a aplicação do gestor
 popularSeletorDeAreas();
