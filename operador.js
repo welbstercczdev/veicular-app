@@ -125,6 +125,9 @@ async function carregarAtividade() {
         const url = new URL(SCRIPT_URL);
         url.searchParams.append('action', 'getActivity');
         url.searchParams.append('id_atividade', currentActivityId);
+
+          // ADICIONE ESTA LINHA PARA O TESTE
+    console.log("Tentando acessar a URL:", url.href); 
         
         // 2. FAZER A REQUISIÇÃO GET (Funciona com CORS)
         const response = await fetch(url); 
