@@ -40,7 +40,7 @@ function getQuadraId(feature) {
  * @returns {number|null}
  */
 function getAreaId(feature) {
-    if (feature.properties && feature.properties.description) {
+    if(feature.properties && feature.properties.description){
         try {
             const areaString = feature.properties.description.replace('ÁREA:', '').trim();
             return parseInt(areaString, 10);
@@ -78,7 +78,9 @@ function updateSidebar() {
         
         removeBtn.onclick = () => {
             selectedQuadras.delete(quadra.id);
-            quadrasLayer.setStyle(getStyleForFeature);
+            if(quadrasLayer) { // Verifica se a camada existe antes de estilizar
+                quadrasLayer.setStyle(getStyleForFeature);
+            }
             updateSidebar();
         };
         
@@ -111,7 +113,7 @@ function onQuadraClick(e) {
     const id = getQuadraId(layer.feature);
     const area = getAreaId(layer.feature);
 
-    if (id === null || area === null) return; // Não faz nada se os IDs não puderem ser extraídos
+    if (id === null || area === null) return;
 
     if (selectedQuadras.has(id)) {
         selectedQuadras.delete(id);
@@ -119,7 +121,7 @@ function onQuadraClick(e) {
         selectedQuadras.set(id, { id: id, area: area });
     }
     
-    // Re-aplica o estilo em toda a camada para garantir a atualização visual
+    // Atualiza o estilo da camada clicada
     layer.setStyle(getStyleForFeature(layer.feature));
     updateSidebar();
 }
@@ -198,7 +200,7 @@ document.getElementById('save-activity').addEventListener('click', async () => {
             alert(`Erro ao salvar no backend: ${result.message}`);
         }
     } catch (error) {
-        alert("Erro de comunicação. Verifique sua conexão e o console.");
+        alert("Erro de comunicação. Verifique a conexão e o console do navegador para mais detalhes.");
         console.error('Save Activity Error:', error);
     }
 });
