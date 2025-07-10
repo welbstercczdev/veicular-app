@@ -1,13 +1,17 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
 const TOTAL_AREAS = 109;
 
+// Inicializa o mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
+// Variáveis globais
 let quadrasLayer;
 const selectedQuadras = new Map();
+
+// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
@@ -15,9 +19,8 @@ const areaSelector = document.getElementById('area-selector');
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
         try {
-            const idString = feature.properties.title.replace('QUADRA:', '').trim();
-            return parseInt(idString, 10);
-        } catch (e) { return null; }
+            return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10);
+        } catch (e) { console.error("Erro ao extrair ID da quadra:", e); return null; }
     }
     return null;
 }
@@ -25,9 +28,8 @@ function getQuadraId(feature) {
 function getAreaId(feature) {
     if(feature.properties && feature.properties.description){
         try {
-            const areaString = feature.properties.description.replace('ÁREA:', '').trim();
-            return parseInt(areaString, 10);
-        } catch(e) { return null; }
+            return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10);
+        } catch(e) { console.error("Erro ao extrair ID da área:", e); return null; }
     }
     return null;
 }
@@ -121,38 +123,26 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     };
 
     try {
-        // --- INÍCIO DA MUDANÇA ---
-        // Usamos o modo 'no-cors'. Isso envia os dados mas não nos permite ler a resposta.
-        // É uma forma de contornar o erro de CORS do Apps Script.
-        await fetch(SCRIPT_URL, {
+        const response = await fetch(SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors', // A MUDANÇA PRINCIPAL ESTÁ AQUI
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify(payload)
         });
+        const result = await response.json();
 
-        // Como não podemos confirmar o sucesso pelo backend, assumimos que funcionou
-        // e damos o feedback para o usuário imediatamente.
-        alert("Atividade enviada para salvamento! Verifique a planilha para confirmar.");
-
-        // Limpa o formulário e a seleção
-        document.getElementById('atividade-id').value = '';
-        document.getElementById('veiculo-select').value = '';
-        document.getElementById('produto-select').value = '';
-        selectedQuadras.clear();
-        if (quadrasLayer) {
-            quadrasLayer.setStyle(getStyleForFeature);
+        if (result.success) {
+            alert(result.message);
+            document.getElementById('atividade-id').value = '';
+            document.getElementById('veiculo-select').value = '';
+            document.getElementById('produto-select').value = '';
+            selectedQuadras.clear();
+            if (quadrasLayer) quadrasLayer.setStyle(getStyleForFeature);
+            updateSidebar();
+        } else {
+            alert(`Erro ao salvar no backend: ${result.message}`);
         }
-        updateSidebar();
-        // --- FIM DA MUDANÇA ---
-
     } catch (error) {
-        // Com 'no-cors', um erro aqui é geralmente um problema de rede real (ex: sem internet)
-        // e não um erro de CORS.
-        alert("Falha grave de rede. Não foi possível enviar a atividade.");
-        console.error('Save Activity Network Error:', error);
+        alert("Erro de comunicação. Verifique a conexão e o console do navegador para mais detalhes.");
+        console.error('Save Activity Error:', error);
     }
 });
 
