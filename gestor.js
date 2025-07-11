@@ -79,40 +79,31 @@ function onQuadraClick(e) {
     updateSidebar();
 }
 
-// --- FUNÇÃO MODIFICADA ---
 function onEachFeature(feature, layer) {
-    // Adiciona o evento de clique para seleção
     layer.on('click', onQuadraClick);
-
-    // Adiciona o rótulo (tooltip) com o número da quadra
     const quadraId = getQuadraId(feature);
     if (quadraId !== null) {
         layer.bindTooltip(quadraId.toString(), {
             permanent: true,
             direction: 'center',
-            className: 'quadra-label' // Classe CSS para estilização
+            className: 'quadra-label'
         }).openTooltip();
     }
 }
-// --- FIM DA MODIFICAÇÃO ---
 
 areaSelector.addEventListener('change', async (e) => {
     const areaId = e.target.value;
     if (!areaId) return;
     if (quadrasLayer) map.removeLayer(quadrasLayer);
     try {
-        const quadrasResponse = await fetch(`data/${areaId}.geojson`);
+        const quadrasResponse = await fetch(`data/${areaId}.geojson?v=${new Date().getTime()}`);
         if (!quadrasResponse.ok) throw new Error(`Arquivo da Área ${areaId} não encontrado.`);
-        
         const quadrasGeoJSON = await quadrasResponse.json();
-        
         quadrasLayer = L.geoJSON(quadrasGeoJSON, {
             style: getStyleForFeature,
-            onEachFeature: onEachFeature // A mágica acontece aqui
+            onEachFeature: onEachFeature
         }).addTo(map);
-
         if(quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
-
     } catch (error) {
         alert(`Erro ao carregar dados da área: ${error.message}`);
     }
@@ -123,15 +114,29 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     const veiculo = document.getElementById('veiculo-select').value;
     const produto = document.getElementById('produto-select').value;
 
-    if (!id_atividade || !veiculo || !produto || selectedQuadras.size === 0) {
-        alert("Preencha todos os campos e selecione ao menos uma quadra.");
+    if (!id_atividade || !veiculo || !produto) {
+        alert("Por favor, preencha o ID da atividade, o veículo e o produto.");
+        return;
+    }
+    if (selectedQuadras.size === 0) {
+        alert("Selecione pelo menos uma quadra no mapa para atribuir.");
         return;
     }
 
-    const payload = { action: 'createActivity', id_atividade, veiculo, produto, quadras: Array.from(selectedQuadras.values()) };
+    const payload = {
+        action: 'createActivity',
+        id_atividade: id_atividade,
+        veiculo: veiculo,
+        produto: produto,
+        quadras: Array.from(selectedQuadras.values())
+    };
 
     try {
-        await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+        await fetch(SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify(payload)
+        });
         alert("Atividade enviada para salvamento! Verifique a planilha para confirmar.");
         document.getElementById('atividade-id').value = '';
         document.getElementById('veiculo-select').value = '';
