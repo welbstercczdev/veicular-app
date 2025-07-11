@@ -1,17 +1,32 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
 const TOTAL_AREAS = 109;
 
+// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
+// Variáveis globais
 let quadrasLayer;
 const selectedQuadras = new Map();
 
+// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
+
+
+// --- FUNÇÕES DE LÓGICA E ESTILO ---
+
+/**
+ * Gera uma cor HSL distinta e consistente para um ID de área.
+ */
+function getColorForArea(areaId) {
+    // Usa uma fórmula para espalhar as cores pelo círculo cromático
+    const hue = (areaId * 137.508) % 360; 
+    return `hsl(${hue}, 80%, 50%)`;
+}
 
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
@@ -59,10 +74,17 @@ function updateSidebar() {
 }
 
 function getStyleForFeature(feature) {
-    const id = getQuadraId(feature);
-    return selectedQuadras.has(id) ?
-        { color: '#ffc107', weight: 2, fillOpacity: 0.7 } :
-        { color: '#6c757d', weight: 1, opacity: 0.7, fillOpacity: 0.3 };
+    const quadraId = getQuadraId(feature);
+    const areaId = getAreaId(feature);
+    const borderColor = getColorForArea(areaId); // Gera a cor da borda
+
+    if (selectedQuadras.has(quadraId)) {
+        // Estilo para quadras selecionadas
+        return { color: borderColor, weight: 3, opacity: 1, fillColor: '#ffc107', fillOpacity: 0.7 };
+    } else {
+        // Estilo para quadras não selecionadas
+        return { color: borderColor, weight: 2, opacity: 0.8, fillColor: '#6c757d', fillOpacity: 0.3 };
+    }
 }
 
 function onQuadraClick(e) {
@@ -91,6 +113,9 @@ function onEachFeature(feature, layer) {
     }
 }
 
+
+// --- FUNÇÕES DE CARREGAMENTO E ENVIO ---
+
 areaSelector.addEventListener('change', async (e) => {
     const areaId = e.target.value;
     if (!areaId) return;
@@ -114,29 +139,15 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     const veiculo = document.getElementById('veiculo-select').value;
     const produto = document.getElementById('produto-select').value;
 
-    if (!id_atividade || !veiculo || !produto) {
-        alert("Por favor, preencha o ID da atividade, o veículo e o produto.");
-        return;
-    }
-    if (selectedQuadras.size === 0) {
-        alert("Selecione pelo menos uma quadra no mapa para atribuir.");
+    if (!id_atividade || !veiculo || !produto || selectedQuadras.size === 0) {
+        alert("Preencha todos os campos e selecione ao menos uma quadra.");
         return;
     }
 
-    const payload = {
-        action: 'createActivity',
-        id_atividade: id_atividade,
-        veiculo: veiculo,
-        produto: produto,
-        quadras: Array.from(selectedQuadras.values())
-    };
+    const payload = { action: 'createActivity', id_atividade, veiculo, produto, quadras: Array.from(selectedQuadras.values()) };
 
     try {
-        await fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: JSON.stringify(payload)
-        });
+        await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
         alert("Atividade enviada para salvamento! Verifique a planilha para confirmar.");
         document.getElementById('atividade-id').value = '';
         document.getElementById('veiculo-select').value = '';
@@ -159,4 +170,5 @@ function popularSeletorDeAreas() {
     }
 }
 
+// Inicia a aplicação do gestor
 popularSeletorDeAreas();
