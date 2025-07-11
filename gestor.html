@@ -5,19 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestor de Atividades</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
-    <style>
-        body { font-family: sans-serif; display: flex; height: 100vh; margin: 0; }
-        #map { flex-grow: 1; height: 100%; }
-        #sidebar { width: 350px; padding: 15px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); overflow-y: auto; display: flex; flex-direction: column; }
-        #sidebar h3, #sidebar h4 { margin-top: 0; }
-        #quadras-container { flex-grow: 1; overflow-y: auto; border: 1px solid #ccc; padding: 5px; margin-bottom: 10px; }
-        #quadras-list { list-style: none; padding: 0; margin: 0;}
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input, select { width: 100%; padding: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; margin-top: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
-        button:hover { background-color: #0056b3; }
-    </style>
+    <!-- Este arquivo CSS será atualizado -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="sidebar">
@@ -28,7 +17,6 @@
                 <input type="text" id="atividade-id" placeholder="Ex: 2023-001">
             </div>
             
-            <!-- NOVOS CAMPOS -->
             <div class="form-group">
                 <label for="veiculo-select">Veículo:</label>
                 <select id="veiculo-select">
@@ -46,7 +34,6 @@
                     <option value="VECTOBAC">VECTOBAC</option>
                 </select>
             </div>
-            <!-- FIM DOS NOVOS CAMPOS -->
             
             <div class="form-group">
                 <label for="area-selector">Carregar Área para Seleção:</label>
