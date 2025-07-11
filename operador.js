@@ -1,81 +1,65 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
 
-// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Variáveis globais para controlar o estado
 let quadrasLayer;
 let activityStatus = {};
 let currentActivityId = null;
 
-// --- FUNÇÕES DE LÓGICA DO MAPA ---
-
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
-        try {
-            const idString = feature.properties.title.replace('QUADRA:', '').trim();
-            return parseInt(idString, 10);
-        } catch (e) {
-            console.error("Erro ao extrair ID da quadra:", feature.properties.title, e);
-            return null;
-        }
+        try { return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10); } 
+        catch (e) { return null; }
     }
     return null;
 }
 
 function getStyle(feature) {
     const id = getQuadraId(feature);
-    if (!activityStatus[id]) {
-        return { opacity: 0, fillOpacity: 0 };
-    }
-    
-    const status = activityStatus[id];
-    return status === 'Trabalhada' ?
-        { color: "#28a745", weight: 2, fillOpacity: 0.6 } : // Verde
-        { color: "#dc3545", weight: 2, fillOpacity: 0.6 };   // Vermelho (Pendente)
+    if (!activityStatus[id]) return { opacity: 0, fillOpacity: 0 };
+    return activityStatus[id] === 'Trabalhada' ?
+        { color: "#28a745", weight: 2, fillOpacity: 0.6 } :
+        { color: "#dc3545", weight: 2, fillOpacity: 0.6 };
 }
 
 window.marcarComoTrabalhada = async function(id) {
     activityStatus[id] = 'Trabalhada';
     if (quadrasLayer) quadrasLayer.setStyle(getStyle);
     map.closePopup();
-
     const payload = { action: 'updateStatus', id_atividade: currentActivityId, id_quadra: id, status: 'Trabalhada' };
-
     try {
-        await fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: JSON.stringify(payload)
-        });
+        await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
         console.log(`Atualização da quadra ${id} enviada.`);
     } catch(e) {
-        alert("Erro de rede ao salvar status. A mudança pode não ter sido registrada.");
-        activityStatus[id] = 'Pendente';
-        if (quadrasLayer) quadrasLayer.setStyle(getStyle);
+        alert("Erro de rede. A mudança pode não ter sido registrada.");
     }
 }
 
+// --- FUNÇÃO MODIFICADA ---
 function onEachFeature(feature, layer) {
     const id = getQuadraId(feature);
+
     if (id !== null && activityStatus[id]) {
         layer.on('click', function(e) {
             const popupContent = `<b>Quadra: ${id}</b><br>Status: ${activityStatus[id]}<br><br><button onclick="marcarComoTrabalhada(${id})">Marcar como Trabalhada</button>`;
             L.popup().setLatLng(e.latlng).setContent(popupContent).openOn(map);
         });
     }
-}
 
-// --- FUNÇÕES DE CARREGAMENTO E INICIALIZAÇÃO ---
+    if (id !== null) {
+        layer.bindTooltip(id.toString(), {
+            permanent: true,
+            direction: 'center',
+            className: 'quadra-label'
+        }).openTooltip();
+    }
+}
+// --- FIM DA MODIFICAÇÃO ---
 
 async function carregarAtividade() {
     currentActivityId = document.getElementById('atividade-select').value;
-    
     if (quadrasLayer) map.removeLayer(quadrasLayer);
-    
     if (!currentActivityId) return;
     
     const loadingPopup = L.popup({ closeButton: false, autoClose: false }).setLatLng(map.getCenter()).setContent(`Carregando atividade ${currentActivityId}...`).openOn(map);
@@ -136,19 +120,15 @@ async function carregarAtividade() {
 
 async function popularAtividadesPendentes() {
     const seletor = document.getElementById('atividade-select');
-    
     try {
         const url = new URL(SCRIPT_URL);
         url.searchParams.append('action', 'getPendingActivities');
-
         const response = await fetch(url);
-        if (!response.ok) throw new Error(`Erro de rede ao buscar atividades: ${response.statusText}`);
-        
+        if (!response.ok) throw new Error(`Erro de rede: ${response.statusText}`);
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
 
         seletor.innerHTML = '<option value="">Selecione uma atividade...</option>';
-
         if (result.data.length === 0) {
             const option = document.createElement('option');
             option.textContent = "Nenhuma atividade pendente";
@@ -168,7 +148,6 @@ async function popularAtividadesPendentes() {
     }
 }
 
-// Garante que o script só vai rodar depois que todo o HTML for carregado
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('atividade-select').addEventListener('change', carregarAtividade);
     popularAtividadesPendentes();
