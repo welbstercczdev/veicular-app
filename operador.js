@@ -6,52 +6,67 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
-// Variáveis globais para controlar o estado
+// Variáveis globais
 let quadrasLayer;
 let activityStatus = {};
 let currentActivityId = null;
 
 // --- FUNÇÕES DE LÓGICA DO MAPA ---
 
+function getColorForArea(areaId) {
+    const hue = (areaId * 137.508) % 360;
+    return `hsl(${hue}, 80%, 50%)`;
+}
+
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
         try {
-            const idString = feature.properties.title.replace('QUADRA:', '').trim();
-            return parseInt(idString, 10);
+            return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10);
         } catch (e) {
-            console.error("Erro ao extrair ID da quadra:", feature.properties.title, e);
+            console.error("Erro ao extrair ID da quadra:", e);
             return null;
         }
     }
     return null;
 }
 
-function getStyle(feature) {
-    const id = getQuadraId(feature);
-    if (!activityStatus[id]) {
-        return { opacity: 0, fillOpacity: 0 };
+function getAreaId(feature) {
+    if(feature.properties && feature.properties.description){
+        try {
+            return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10);
+        } catch(e) {
+            console.error("Erro ao extrair ID da área:", e);
+            return null;
+        }
     }
-    
-    const status = activityStatus[id];
-    return status === 'Trabalhada' ?
-        { color: "#28a745", weight: 2, fillOpacity: 0.6 } : // Verde
-        { color: "#dc3545", weight: 2, fillOpacity: 0.6 };   // Vermelho (Pendente)
+    return null;
 }
 
-/**
- * Função global para ATUALIZAR O STATUS de uma quadra.
- */
+
+function getStyle(feature) {
+    const id = getQuadraId(feature);
+    const areaId = getAreaId(feature);
+    
+    if (!activityStatus[id]) return { opacity: 0, fillOpacity: 0 };
+    
+    const status = activityStatus[id];
+    const borderColor = getColorForArea(areaId);
+
+    switch (status) {
+        case 'Trabalhada':
+            return { color: borderColor, weight: 2, opacity: 1, fillColor: "#28a745", fillOpacity: 0.6 };
+        default:
+            return { color: borderColor, weight: 2, opacity: 1, fillColor: "#dc3545", fillOpacity: 0.6 };
+    }
+}
+
 window.atualizarStatusQuadra = async function(id, novoStatus) {
     const statusAnterior = activityStatus[id];
-
-    // Atualização visual imediata
     activityStatus[id] = novoStatus;
     if (quadrasLayer) quadrasLayer.setStyle(getStyle);
-    // Não precisamos mais do map.closePopup(), pois não há popup.
-
+    
     const payload = { action: 'updateStatus', id_atividade: currentActivityId, id_quadra: id, status: novoStatus };
 
-    // Envio para o backend
     try {
         await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
         console.log(`Atualização da quadra ${id} para ${novoStatus} enviada.`);
@@ -62,25 +77,17 @@ window.atualizarStatusQuadra = async function(id, novoStatus) {
     }
 }
 
-/**
- * Define o que acontece quando uma quadra é clicada e adiciona o rótulo.
- */
 function onEachFeature(feature, layer) {
     const id = getQuadraId(feature);
     
-    // Adiciona o evento de clique apenas para quadras que fazem parte da atividade
     if (id !== null && activityStatus[id]) {
         layer.on('click', function(e) {
-            // Lógica de "toggle" com um clique
             const statusAtual = activityStatus[id] || 'Pendente';
             const novoStatus = (statusAtual === 'Pendente') ? 'Trabalhada' : 'Pendente';
-            
-            // Chama a função global para atualizar o status e enviar ao backend
             window.atualizarStatusQuadra(id, novoStatus);
         });
     }
 
-    // Mantém o rótulo permanente com o número da quadra
     if (id !== null) {
         layer.bindTooltip(id.toString(), {
             permanent: true,
@@ -90,7 +97,6 @@ function onEachFeature(feature, layer) {
     }
 }
 
-
 // --- FUNÇÕES DE CARREGAMENTO E INICIALIZAÇÃO ---
 
 async function carregarAtividade() {
@@ -98,16 +104,14 @@ async function carregarAtividade() {
     if (quadrasLayer) map.removeLayer(quadrasLayer);
     if (!currentActivityId) return;
     
-    const loadingPopup = L.popup({ closeButton: false, autoClose: false }).setLatLng(map.getCenter()).setContent(`Carregando atividade ${currentActivityId}...`).openOn(map);
+    const loadingPopup = L.popup({ closeButton: false, autoClose: false }).setLatLng(map.getCenter()).setContent(`Carregando...`).openOn(map);
 
     try {
         const url = new URL(SCRIPT_URL);
         url.searchParams.append('action', 'getActivity');
         url.searchParams.append('id_atividade', currentActivityId);
-        
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Erro de rede: ${response.statusText}`);
-        
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
         
@@ -115,11 +119,7 @@ async function carregarAtividade() {
         const areasParaCarregar = result.data.areas;
         const quadrasDaAtividade = Object.keys(activityStatus);
         
-        if (areasParaCarregar.length === 0) {
-            alert("Nenhuma quadra encontrada para esta atividade.");
-            map.closePopup(loadingPopup);
-            return;
-        }
+        if (areasParaCarregar.length === 0) { alert("Nenhuma quadra encontrada para esta atividade."); map.closePopup(loadingPopup); return; }
 
         const allFeatures = [];
         for (const areaId of areasParaCarregar) {
@@ -136,17 +136,11 @@ async function carregarAtividade() {
         }
 
         map.closePopup(loadingPopup);
-        if(allFeatures.length === 0) {
-            alert("As quadras desta atividade não foram encontradas nos arquivos de mapa.");
-            return;
-        }
+        if(allFeatures.length === 0) { alert("As quadras desta atividade não foram encontradas nos arquivos de mapa."); return; }
 
         const featureCollection = { type: "FeatureCollection", features: allFeatures };
         quadrasLayer = L.geoJSON(featureCollection, { style: getStyle, onEachFeature: onEachFeature }).addTo(map);
-
-        if (quadrasLayer.getBounds().isValid()) {
-            map.fitBounds(quadrasLayer.getBounds());
-        }
+        if (quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
 
     } catch(error) {
         map.closePopup(loadingPopup);
@@ -160,7 +154,7 @@ async function popularAtividadesPendentes() {
         const url = new URL(SCRIPT_URL);
         url.searchParams.append('action', 'getPendingActivities');
         const response = await fetch(url);
-        if (!response.ok) throw new Error(`Erro de rede ao buscar atividades: ${response.statusText}`);
+        if (!response.ok) throw new Error(`Erro de rede: ${response.statusText}`);
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
 
@@ -184,7 +178,6 @@ async function popularAtividadesPendentes() {
     }
 }
 
-// Garante que o script só vai rodar depois que todo o HTML for carregado
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('atividade-select').addEventListener('change', carregarAtividade);
     popularAtividadesPendentes();
