@@ -1,56 +1,36 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
 const TOTAL_AREAS = 109;
 
-// Inicializa o mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
-// Variáveis globais
 let quadrasLayer;
 const selectedQuadras = new Map();
 
-// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
 
-/**
- * Extrai o ID numérico da quadra a partir da propriedade "title" do GeoJSON.
- */
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
         try {
-            const idString = feature.properties.title.replace('QUADRA:', '').trim();
-            return parseInt(idString, 10);
-        } catch (e) {
-            console.error("Erro ao extrair ID da quadra:", feature.properties.title, e);
-            return null;
-        }
+            return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10);
+        } catch (e) { console.error("Erro ao extrair ID da quadra:", e); return null; }
     }
     return null;
 }
 
-/**
- * Extrai o ID numérico da área a partir da propriedade "description" do GeoJSON.
- */
 function getAreaId(feature) {
     if(feature.properties && feature.properties.description){
         try {
-            const areaString = feature.properties.description.replace('ÁREA:', '').trim();
-            return parseInt(areaString, 10);
-        } catch(e) {
-            console.error("Erro ao extrair ID da área:", feature.properties.description, e);
-            return null;
-        }
+            return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10);
+        } catch(e) { console.error("Erro ao extrair ID da área:", e); return null; }
     }
     return null;
 }
 
-/**
- * Atualiza a barra lateral com a lista de quadras selecionadas.
- */
 function updateSidebar() {
     quadrasSelecionadasList.innerHTML = '';
     const sortedQuadras = Array.from(selectedQuadras.values()).sort((a, b) => {
@@ -78,9 +58,6 @@ function updateSidebar() {
     countSpan.textContent = selectedQuadras.size;
 }
 
-/**
- * Define o estilo (cor) de cada quadra.
- */
 function getStyleForFeature(feature) {
     const id = getQuadraId(feature);
     return selectedQuadras.has(id) ?
@@ -88,9 +65,6 @@ function getStyleForFeature(feature) {
         { color: '#6c757d', weight: 1, opacity: 0.7, fillOpacity: 0.3 };
 }
 
-/**
- * Função chamada quando uma quadra é clicada.
- */
 function onQuadraClick(e) {
     const layer = e.target;
     const id = getQuadraId(layer.feature);
@@ -105,9 +79,23 @@ function onQuadraClick(e) {
     updateSidebar();
 }
 
-/**
- * Carrega as quadras de uma área específica no mapa.
- */
+// --- FUNÇÃO MODIFICADA ---
+function onEachFeature(feature, layer) {
+    // Adiciona o evento de clique para seleção
+    layer.on('click', onQuadraClick);
+
+    // Adiciona o rótulo (tooltip) com o número da quadra
+    const quadraId = getQuadraId(feature);
+    if (quadraId !== null) {
+        layer.bindTooltip(quadraId.toString(), {
+            permanent: true,
+            direction: 'center',
+            className: 'quadra-label' // Classe CSS para estilização
+        }).openTooltip();
+    }
+}
+// --- FIM DA MODIFICAÇÃO ---
+
 areaSelector.addEventListener('change', async (e) => {
     const areaId = e.target.value;
     if (!areaId) return;
@@ -115,69 +103,48 @@ areaSelector.addEventListener('change', async (e) => {
     try {
         const quadrasResponse = await fetch(`data/${areaId}.geojson`);
         if (!quadrasResponse.ok) throw new Error(`Arquivo da Área ${areaId} não encontrado.`);
+        
         const quadrasGeoJSON = await quadrasResponse.json();
+        
         quadrasLayer = L.geoJSON(quadrasGeoJSON, {
             style: getStyleForFeature,
-            onEachFeature: (feature, layer) => { layer.on('click', onQuadraClick); }
+            onEachFeature: onEachFeature // A mágica acontece aqui
         }).addTo(map);
+
         if(quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
+
     } catch (error) {
         alert(`Erro ao carregar dados da área: ${error.message}`);
     }
 });
 
-/**
- * Ação do botão "Salvar Atividade".
- */
 document.getElementById('save-activity').addEventListener('click', async () => {
     const id_atividade = document.getElementById('atividade-id').value.trim();
     const veiculo = document.getElementById('veiculo-select').value;
     const produto = document.getElementById('produto-select').value;
 
-    if (!id_atividade || !veiculo || !produto) {
-        alert("Por favor, preencha o ID da atividade, o veículo e o produto.");
-        return;
-    }
-    if (selectedQuadras.size === 0) {
-        alert("Selecione pelo menos uma quadra no mapa para atribuir.");
+    if (!id_atividade || !veiculo || !produto || selectedQuadras.size === 0) {
+        alert("Preencha todos os campos e selecione ao menos uma quadra.");
         return;
     }
 
-    const payload = {
-        action: 'createActivity',
-        id_atividade: id_atividade,
-        veiculo: veiculo,
-        produto: produto,
-        quadras: Array.from(selectedQuadras.values())
-    };
+    const payload = { action: 'createActivity', id_atividade, veiculo, produto, quadras: Array.from(selectedQuadras.values()) };
 
     try {
-        await fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors', // Envia sem esperar resposta para evitar erro de CORS
-            body: JSON.stringify(payload)
-        });
-
+        await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
         alert("Atividade enviada para salvamento! Verifique a planilha para confirmar.");
-        
         document.getElementById('atividade-id').value = '';
         document.getElementById('veiculo-select').value = '';
         document.getElementById('produto-select').value = '';
         selectedQuadras.clear();
-        if (quadrasLayer) {
-            quadrasLayer.setStyle(getStyleForFeature);
-        }
+        if (quadrasLayer) quadrasLayer.setStyle(getStyleForFeature);
         updateSidebar();
-        
     } catch (error) {
         alert("Falha grave de rede. Não foi possível enviar a atividade.");
         console.error('Save Activity Error:', error);
     }
 });
 
-/**
- * Preenche o menu de seleção de áreas.
- */
 function popularSeletorDeAreas() {
     for (let i = 1; i <= TOTAL_AREAS; i++) {
         const option = document.createElement('option');
@@ -187,5 +154,4 @@ function popularSeletorDeAreas() {
     }
 }
 
-// Inicia a aplicação do gestor
 popularSeletorDeAreas();
