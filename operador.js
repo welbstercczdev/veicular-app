@@ -6,12 +6,13 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
-// Variáveis globais
+// Variáveis globais para controlar o estado
 let quadrasLayer;
 let activityStatus = {};
 let currentActivityId = null;
 
-// Funções de lógica do mapa
+// --- FUNÇÕES DE LÓGICA DO MAPA ---
+
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
         try {
@@ -32,12 +33,9 @@ function getStyle(feature) {
     }
     
     const status = activityStatus[id];
-    switch (status) {
-        case 'Trabalhada':
-            return { color: "#28a745", weight: 2, fillOpacity: 0.6 }; // Verde
-        default:
-            return { color: "#dc3545", weight: 2, fillOpacity: 0.6 }; // Vermelho (Pendente)
-    }
+    return status === 'Trabalhada' ?
+        { color: "#28a745", weight: 2, fillOpacity: 0.6 } : // Verde
+        { color: "#dc3545", weight: 2, fillOpacity: 0.6 };   // Vermelho (Pendente)
 }
 
 window.marcarComoTrabalhada = async function(id) {
@@ -48,10 +46,16 @@ window.marcarComoTrabalhada = async function(id) {
     const payload = { action: 'updateStatus', id_atividade: currentActivityId, id_quadra: id, status: 'Trabalhada' };
 
     try {
-        await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+        await fetch(SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify(payload)
+        });
         console.log(`Atualização da quadra ${id} enviada.`);
     } catch(e) {
         alert("Erro de rede ao salvar status. A mudança pode não ter sido registrada.");
+        activityStatus[id] = 'Pendente';
+        if (quadrasLayer) quadrasLayer.setStyle(getStyle);
     }
 }
 
@@ -65,14 +69,15 @@ function onEachFeature(feature, layer) {
     }
 }
 
+// --- FUNÇÕES DE CARREGAMENTO E INICIALIZAÇÃO ---
+
 async function carregarAtividade() {
     currentActivityId = document.getElementById('atividade-select').value;
-    if (!currentActivityId) {
-        if (quadrasLayer) map.removeLayer(quadrasLayer);
-        return;
-    }
     
     if (quadrasLayer) map.removeLayer(quadrasLayer);
+    
+    if (!currentActivityId) return;
+    
     const loadingPopup = L.popup({ closeButton: false, autoClose: false }).setLatLng(map.getCenter()).setContent(`Carregando atividade ${currentActivityId}...`).openOn(map);
 
     try {
@@ -88,6 +93,7 @@ async function carregarAtividade() {
         
         activityStatus = result.data.quadras;
         const areasParaCarregar = result.data.areas;
+        const quadrasDaAtividade = Object.keys(activityStatus);
         
         if (areasParaCarregar.length === 0) {
             alert("Nenhuma quadra encontrada para esta atividade.");
@@ -101,7 +107,10 @@ async function carregarAtividade() {
                 const res = await fetch(`data/${areaId}.geojson?v=${new Date().getTime()}`);
                 if (!res.ok) { console.warn(`Arquivo da Área ${areaId} não encontrado.`); continue; }
                 const areaData = await res.json();
-                const featuresFiltradas = areaData.features.filter(f => Object.keys(activityStatus).includes(getQuadraId(f)?.toString()));
+                const featuresFiltradas = areaData.features.filter(f => {
+                    const quadraId = getQuadraId(f);
+                    return quadraId !== null && quadrasDaAtividade.includes(quadraId.toString());
+                });
                 allFeatures.push(...featuresFiltradas);
             } catch(e) { console.error(`Erro ao processar Área ${areaId}:`, e); }
         }
@@ -146,10 +155,10 @@ async function popularAtividadesPendentes() {
             option.disabled = true;
             seletor.appendChild(option);
         } else {
-            result.data.forEach(activityId => {
+            result.data.forEach(activity => {
                 const option = document.createElement('option');
-                option.value = activityId;
-                option.textContent = `Atividade ${activityId}`;
+                option.value = activity.id;
+                option.textContent = `Atividade: ${activity.id} (Veículo: ${activity.veiculo} | Produto: ${activity.produto})`;
                 seletor.appendChild(option);
             });
         }
@@ -159,7 +168,7 @@ async function popularAtividadesPendentes() {
     }
 }
 
-// CORREÇÃO: Garante que o script só vai rodar depois que todo o HTML for carregado
+// Garante que o script só vai rodar depois que todo o HTML for carregado
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('atividade-select').addEventListener('change', carregarAtividade);
     popularAtividadesPendentes();
