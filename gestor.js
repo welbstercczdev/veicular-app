@@ -47,7 +47,7 @@ function updateSidebar() {
         text.textContent = `Área ${quadra.area} - Quadra ${quadra.id}`;
         const removeBtn = document.createElement('button');
         removeBtn.textContent = 'X';
-        removeBtn.style = 'width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px; border-radius: 4px; border: none; color: white; cursor: pointer;';
+        removeBtn.style = 'width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px;';
         removeBtn.onclick = () => {
             const compositeKey = `${quadra.area}-${quadra.id}`;
             selectedQuadras.delete(compositeKey);
@@ -116,7 +116,6 @@ areaSelector.addEventListener('change', async (e) => {
 
 document.getElementById('save-activity').addEventListener('click', async () => {
     const saveButton = document.getElementById('save-activity');
-    
     const id_atividade = document.getElementById('atividade-id').value.trim();
     const veiculo = document.getElementById('veiculo-select').value;
     const produto = document.getElementById('produto-select').value;
@@ -124,7 +123,7 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     const operador = document.getElementById('operador-select').value;
 
     if (!id_atividade || !veiculo || !produto || !motorista || !operador) {
-        alert("Por favor, preencha todos os campos da atividade, incluindo Motorista e Operador.");
+        alert("Por favor, preencha todos os campos da atividade.");
         return;
     }
     if (selectedQuadras.size === 0) {
@@ -132,22 +131,14 @@ document.getElementById('save-activity').addEventListener('click', async () => {
         return;
     }
 
-    const payload = {
-        action: 'createActivity',
-        id_atividade: id_atividade,
-        veiculo: veiculo,
-        produto: produto,
-        motorista: motorista,
-        operador: operador,
-        quadras: Array.from(selectedQuadras.values())
-    };
+    const payload = { action: 'createActivity', id_atividade, veiculo, produto, motorista, operador, quadras: Array.from(selectedQuadras.values()) };
 
     try {
         saveButton.disabled = true;
         saveButton.textContent = 'Salvando...';
 
         await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-        
+
         alert("Atividade enviada para salvamento! Verifique a planilha para confirmar.");
         
         document.getElementById('atividade-id').value = '';
@@ -158,7 +149,6 @@ document.getElementById('save-activity').addEventListener('click', async () => {
         selectedQuadras.clear();
         if (quadrasLayer) quadrasLayer.setStyle(getStyleForFeature);
         updateSidebar();
-        
     } catch (error) {
         alert("Falha grave de rede. Não foi possível enviar a atividade.");
         console.error('Save Activity Error:', error);
@@ -183,27 +173,22 @@ async function popularAgentes() {
     try {
         const response = await fetch(AGENTES_API_URL);
         if (!response.ok) throw new Error('Falha ao buscar a lista de agentes.');
-        
         const data = await response.json();
-        if (!data.success) throw new Error(data.error || "A API de agentes retornou um erro.");
-
+        if (data.error) throw new Error(data.error);
         motoristaSelect.innerHTML = '<option value="">Selecione o motorista...</option>';
         operadorSelect.innerHTML = '<option value="">Selecione o operador...</option>';
-
         data.agentes.forEach(nome => {
             const optionMotorista = document.createElement('option');
             optionMotorista.value = nome;
             optionMotorista.textContent = nome;
             motoristaSelect.appendChild(optionMotorista);
-
             const optionOperador = document.createElement('option');
             optionOperador.value = nome;
             optionOperador.textContent = nome;
             operadorSelect.appendChild(optionOperador);
         });
     } catch (error) {
-        alert("Não foi possível carregar a lista de nomes. Verifique a API de Agentes e o console.");
-        console.error("Erro ao popular agentes:", error);
+        alert("Não foi possível carregar a lista de nomes. Verifique a API de Agentes.");
     }
 }
 
