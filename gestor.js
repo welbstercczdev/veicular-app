@@ -1,24 +1,16 @@
-// URLs das APIs
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
 const AGENTES_API_URL = "https://script.google.com/macros/s/AKfycbxg6XocN88LKvq1bv-ngEIWHjGG1XqF0ELSK9dFteunXo8a1R2AHeAH5xdfEulSZPzsgQ/exec";
 const TOTAL_AREAS = 109;
 
-// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Variáveis globais
 let quadrasLayer;
 const selectedQuadras = new Map();
 
-// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
-
-// --- FUNÇÕES DE LÓGICA E ESTILO ---
 
 function getColorForArea(areaId) {
     const hue = (areaId * 137.508) % 360;
@@ -27,18 +19,16 @@ function getColorForArea(areaId) {
 
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
-        try {
-            return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10);
-        } catch (e) { console.error("Erro ao extrair ID da quadra:", e); return null; }
+        try { return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10); } 
+        catch (e) { return null; }
     }
     return null;
 }
 
 function getAreaId(feature) {
     if(feature.properties && feature.properties.description){
-        try {
-            return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10);
-        } catch(e) { console.error("Erro ao extrair ID da área:", e); return null; }
+        try { return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10); } 
+        catch(e) { return null; }
     }
     return null;
 }
@@ -106,9 +96,6 @@ function onEachFeature(feature, layer) {
     }
 }
 
-
-// --- FUNÇÕES DE CARREGAMENTO E ENVIO ---
-
 areaSelector.addEventListener('change', async (e) => {
     const areaId = e.target.value;
     if (!areaId) return;
@@ -137,7 +124,7 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     const operador = document.getElementById('operador-select').value;
 
     if (!id_atividade || !veiculo || !produto || !motorista || !operador) {
-        alert("Por favor, preencha todos os campos da atividade.");
+        alert("Por favor, preencha todos os campos da atividade, incluindo Motorista e Operador.");
         return;
     }
     if (selectedQuadras.size === 0) {
@@ -147,11 +134,11 @@ document.getElementById('save-activity').addEventListener('click', async () => {
 
     const payload = {
         action: 'createActivity',
-        id_atividade,
-        veiculo,
-        produto,
-        motorista,
-        operador,
+        id_atividade: id_atividade,
+        veiculo: veiculo,
+        produto: produto,
+        motorista: motorista,
+        operador: operador,
         quadras: Array.from(selectedQuadras.values())
     };
 
@@ -198,7 +185,7 @@ async function popularAgentes() {
         if (!response.ok) throw new Error('Falha ao buscar a lista de agentes.');
         
         const data = await response.json();
-        if (data.error) throw new Error(data.error);
+        if (!data.success) throw new Error(data.error || "A API de agentes retornou um erro.");
 
         motoristaSelect.innerHTML = '<option value="">Selecione o motorista...</option>';
         operadorSelect.innerHTML = '<option value="">Selecione o operador...</option>';
@@ -220,7 +207,6 @@ async function popularAgentes() {
     }
 }
 
-// Inicialização da página
 document.addEventListener('DOMContentLoaded', () => {
     popularSeletorDeAreas();
     popularAgentes();
