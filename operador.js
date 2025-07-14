@@ -13,40 +13,31 @@ let currentActivityId = null;
 
 // --- FUNÇÕES DE LÓGICA DO MAPA ---
 
-function getColorForArea(areaId) {
-    const hue = (areaId * 137.508) % 360;
-    return `hsl(${hue}, 80%, 50%)`;
-}
-
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
         try {
             return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10);
-        } catch (e) {
-            console.error("Erro ao extrair ID da quadra:", e);
-            return null;
-        }
+        } catch (e) { console.error("Erro ao extrair ID da quadra:", e); return null; }
     }
     return null;
 }
 
 function getAreaId(feature) {
     if(feature.properties && feature.properties.description){
-        try {
-            return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10);
-        } catch(e) {
-            console.error("Erro ao extrair ID da área:", e);
-            return null;
-        }
+        try { return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10); } 
+        catch(e) { return null; }
     }
     return null;
 }
 
+function getColorForArea(areaId) {
+    const hue = (areaId * 137.508) % 360;
+    return `hsl(${hue}, 80%, 50%)`;
+}
 
 function getStyle(feature) {
     const id = getQuadraId(feature);
     const areaId = getAreaId(feature);
-    
     if (!activityStatus[id]) return { opacity: 0, fillOpacity: 0 };
     
     const status = activityStatus[id];
@@ -64,7 +55,7 @@ window.atualizarStatusQuadra = async function(id, novoStatus) {
     const statusAnterior = activityStatus[id];
     activityStatus[id] = novoStatus;
     if (quadrasLayer) quadrasLayer.setStyle(getStyle);
-    
+
     const payload = { action: 'updateStatus', id_atividade: currentActivityId, id_quadra: id, status: novoStatus };
 
     try {
@@ -79,7 +70,6 @@ window.atualizarStatusQuadra = async function(id, novoStatus) {
 
 function onEachFeature(feature, layer) {
     const id = getQuadraId(feature);
-    
     if (id !== null && activityStatus[id]) {
         layer.on('click', function(e) {
             const statusAtual = activityStatus[id] || 'Pendente';
@@ -90,12 +80,11 @@ function onEachFeature(feature, layer) {
 
     if (id !== null) {
         layer.bindTooltip(id.toString(), {
-            permanent: true,
-            direction: 'center',
-            className: 'quadra-label'
+            permanent: true, direction: 'center', className: 'quadra-label'
         }).openTooltip();
     }
 }
+
 
 // --- FUNÇÕES DE CARREGAMENTO E INICIALIZAÇÃO ---
 
@@ -110,8 +99,10 @@ async function carregarAtividade() {
         const url = new URL(SCRIPT_URL);
         url.searchParams.append('action', 'getActivity');
         url.searchParams.append('id_atividade', currentActivityId);
+        
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Erro de rede: ${response.statusText}`);
+        
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
         
@@ -119,7 +110,11 @@ async function carregarAtividade() {
         const areasParaCarregar = result.data.areas;
         const quadrasDaAtividade = Object.keys(activityStatus);
         
-        if (areasParaCarregar.length === 0) { alert("Nenhuma quadra encontrada para esta atividade."); map.closePopup(loadingPopup); return; }
+        if (areasParaCarregar.length === 0) {
+            alert("Nenhuma quadra encontrada para esta atividade.");
+            map.closePopup(loadingPopup);
+            return;
+        }
 
         const allFeatures = [];
         for (const areaId of areasParaCarregar) {
@@ -136,7 +131,10 @@ async function carregarAtividade() {
         }
 
         map.closePopup(loadingPopup);
-        if(allFeatures.length === 0) { alert("As quadras desta atividade não foram encontradas nos arquivos de mapa."); return; }
+        if(allFeatures.length === 0) {
+            alert("As quadras desta atividade não foram encontradas nos arquivos de mapa.");
+            return;
+        }
 
         const featureCollection = { type: "FeatureCollection", features: allFeatures };
         quadrasLayer = L.geoJSON(featureCollection, { style: getStyle, onEachFeature: onEachFeature }).addTo(map);
@@ -150,15 +148,17 @@ async function carregarAtividade() {
 
 async function popularAtividadesPendentes() {
     const seletor = document.getElementById('atividade-select');
+    
     try {
         const url = new URL(SCRIPT_URL);
         url.searchParams.append('action', 'getPendingActivities');
         const response = await fetch(url);
-        if (!response.ok) throw new Error(`Erro de rede: ${response.statusText}`);
+        if (!response.ok) throw new Error(`Erro de rede ao buscar atividades: ${response.statusText}`);
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
 
         seletor.innerHTML = '<option value="">Selecione uma atividade...</option>';
+
         if (result.data.length === 0) {
             const option = document.createElement('option');
             option.textContent = "Nenhuma atividade pendente";
@@ -168,7 +168,9 @@ async function popularAtividadesPendentes() {
             result.data.forEach(activity => {
                 const option = document.createElement('option');
                 option.value = activity.id;
-                option.textContent = `Atividade: ${activity.id} (Veículo: ${activity.veiculo} | Produto: ${activity.produto})`;
+                // Exibe os detalhes completos na opção do menu
+                option.textContent = `Atividade: ${activity.id} (Dupla: ${activity.motorista} e ${activity.operador})`;
+                option.title = `Veículo: ${activity.veiculo} | Produto: ${activity.produto}`;
                 seletor.appendChild(option);
             });
         }
