@@ -17,14 +17,10 @@ const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
 
 
-// --- FUNÇÕES DE LÓGICA E ESTILO ---
+// --- FUNÇÕES DE LÓGICA E ESTILO (COM CORREÇÕES) ---
 
-/**
- * Gera uma cor HSL distinta e consistente para um ID de área.
- */
 function getColorForArea(areaId) {
-    // Usa uma fórmula para espalhar as cores pelo círculo cromático
-    const hue = (areaId * 137.508) % 360; 
+    const hue = (areaId * 137.508) % 360;
     return `hsl(${hue}, 80%, 50%)`;
 }
 
@@ -32,7 +28,7 @@ function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
         try {
             return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10);
-        } catch (e) { console.error("Erro ao extrair ID da quadra:", e); return null; }
+        } catch (e) { return null; }
     }
     return null;
 }
@@ -41,7 +37,7 @@ function getAreaId(feature) {
     if(feature.properties && feature.properties.description){
         try {
             return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10);
-        } catch(e) { console.error("Erro ao extrair ID da área:", e); return null; }
+        } catch(e) { return null; }
     }
     return null;
 }
@@ -61,11 +57,15 @@ function updateSidebar() {
         const removeBtn = document.createElement('button');
         removeBtn.textContent = 'X';
         removeBtn.style = 'width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px;';
+        
         removeBtn.onclick = () => {
-            selectedQuadras.delete(quadra.id);
+            // CORREÇÃO: Usa a chave composta para remover
+            const compositeKey = `${quadra.area}-${quadra.id}`;
+            selectedQuadras.delete(compositeKey);
             if(quadrasLayer) quadrasLayer.setStyle(getStyleForFeature);
             updateSidebar();
         };
+        
         li.appendChild(text);
         li.appendChild(removeBtn);
         quadrasSelecionadasList.appendChild(li);
@@ -76,13 +76,14 @@ function updateSidebar() {
 function getStyleForFeature(feature) {
     const quadraId = getQuadraId(feature);
     const areaId = getAreaId(feature);
-    const borderColor = getColorForArea(areaId); // Gera a cor da borda
+    const borderColor = getColorForArea(areaId);
+    
+    // CORREÇÃO: Usa a chave composta para verificar a seleção
+    const compositeKey = `${areaId}-${quadraId}`;
 
-    if (selectedQuadras.has(quadraId)) {
-        // Estilo para quadras selecionadas
+    if (selectedQuadras.has(compositeKey)) {
         return { color: borderColor, weight: 3, opacity: 1, fillColor: '#ffc107', fillOpacity: 0.7 };
     } else {
-        // Estilo para quadras não selecionadas
         return { color: borderColor, weight: 2, opacity: 0.8, fillColor: '#6c757d', fillOpacity: 0.3 };
     }
 }
@@ -92,10 +93,14 @@ function onQuadraClick(e) {
     const id = getQuadraId(layer.feature);
     const area = getAreaId(layer.feature);
     if (id === null || area === null) return;
-    if (selectedQuadras.has(id)) {
-        selectedQuadras.delete(id);
+    
+    // CORREÇÃO: Usa a chave composta para adicionar e remover
+    const compositeKey = `${area}-${id}`;
+
+    if (selectedQuadras.has(compositeKey)) {
+        selectedQuadras.delete(compositeKey);
     } else {
-        selectedQuadras.set(id, { id: id, area: area });
+        selectedQuadras.set(compositeKey, { id: id, area: area });
     }
     layer.setStyle(getStyleForFeature(layer.feature));
     updateSidebar();
@@ -113,8 +118,7 @@ function onEachFeature(feature, layer) {
     }
 }
 
-
-// --- FUNÇÕES DE CARREGAMENTO E ENVIO ---
+// --- FUNÇÕES DE CARREGAMENTO E ENVIO (SEM MUDANÇAS) ---
 
 areaSelector.addEventListener('change', async (e) => {
     const areaId = e.target.value;
