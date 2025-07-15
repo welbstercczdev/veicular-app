@@ -2,12 +2,17 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYD
 const AGENTES_API_URL = "https://script.google.com/macros/s/AKfycbxg6XocN88LKvq1bv-ngEIWHjGG1XqF0ELSK9dFteunXo8a1R2AHeAH5xdfEulSZPzsgQ/exec";
 const TOTAL_AREAS = 109;
 
+// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
 
+// Variáveis globais
 let quadrasLayer;
 const selectedQuadras = new Map();
 
+// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
@@ -35,7 +40,7 @@ function getAreaId(feature) {
 
 function updateSidebar() {
     quadrasSelecionadasList.innerHTML = '';
-    let totalArea = 0; // Inicia a variável para somar a área
+    let totalArea = 0;
 
     const sortedQuadras = Array.from(selectedQuadras.values()).sort((a, b) => {
         if (a.area !== b.area) return a.area - b.area;
@@ -43,12 +48,12 @@ function updateSidebar() {
     });
 
     sortedQuadras.forEach((quadra) => {
-        totalArea += quadra.sqMeters; // Soma a área de cada quadra selecionada
+        totalArea += quadra.sqMeters; 
         
         const li = document.createElement('li');
         li.style = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; padding: 2px;';
         const text = document.createElement('span');
-        text.textContent = `Área ${quadra.area} - Quadra ${quadra.id} (${quadra.sqMeters.toFixed(2)} m²)`; // Exibe a área individual
+        text.textContent = `Área ${quadra.area} - Quadra ${quadra.id} (${quadra.sqMeters.toFixed(2)} m²)`;
         
         const removeBtn = document.createElement('button');
         removeBtn.textContent = 'X';
@@ -65,7 +70,7 @@ function updateSidebar() {
     });
     
     countSpan.textContent = selectedQuadras.size;
-    document.getElementById('total-area').textContent = totalArea.toFixed(2); // Atualiza o total na tela
+    document.getElementById('total-area').textContent = totalArea.toFixed(2);
 }
 
 function getStyleForFeature(feature) {
@@ -78,6 +83,7 @@ function getStyleForFeature(feature) {
         { color: borderColor, weight: 2, opacity: 0.8, fillColor: '#6c757d', fillOpacity: 0.3 };
 }
 
+// --- FUNÇÃO CORRIGIDA ---
 function onQuadraClick(e) {
     const layer = e.target;
     const id = getQuadraId(layer.feature);
@@ -89,17 +95,31 @@ function onQuadraClick(e) {
     if (selectedQuadras.has(compositeKey)) {
         selectedQuadras.delete(compositeKey);
     } else {
-        // Calcula a área da quadra ao selecioná-la
-        const latlngs = layer.getLatLngs()[0];
-        const areaInSqMeters = L.GeometryUtil.geodesicArea(latlngs);
+        let areaInSqMeters = 0;
+        const geometryType = layer.feature.geometry.type;
         
-        // Armazena a área junto com os outros dados
+        // Lógica para lidar com Polygon e MultiPolygon
+        if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
+            const latlngs = layer.getLatLngs();
+            // L.GeometryUtil.geodesicArea espera um array simples de pontos
+            // Para MultiPolygon, latlngs é um array de polígonos. Iteramos sobre eles.
+            // Para Polygon, latlngs é um array de "anéis" (o primeiro é a borda externa).
+            L.Util.each(latlngs, function(poly) {
+                // Pega a borda externa de cada polígono/parte do multipolígono
+                const outerRing = Array.isArray(poly[0]) ? poly[0] : poly;
+                areaInSqMeters += L.GeometryUtil.geodesicArea(outerRing);
+            });
+        }
+
+        // Armazena a área calculada junto com os outros dados
         selectedQuadras.set(compositeKey, { id: id, area: areaId, sqMeters: areaInSqMeters });
     }
     
     layer.setStyle(getStyleForFeature(layer.feature));
     updateSidebar();
 }
+// --- FIM DA CORREÇÃO ---
+
 
 function onEachFeature(feature, layer) {
     layer.on('click', onQuadraClick);
@@ -135,7 +155,6 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     const produto = document.getElementById('produto-select').value;
     const motorista = document.getElementById('motorista-input').value.trim();
     const operador = document.getElementById('operador-input').value.trim();
-
     if (!id_atividade || !veiculo || !produto || !motorista || !operador) {
         alert("Por favor, preencha todos os campos da atividade.");
         return;
@@ -144,7 +163,6 @@ document.getElementById('save-activity').addEventListener('click', async () => {
         alert("Selecione pelo menos uma quadra no mapa.");
         return;
     }
-    
     const payload = { action: 'createActivity', id_atividade, veiculo, produto, motorista, operador, quadras: Array.from(selectedQuadras.values()) };
     try {
         await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
@@ -205,8 +223,6 @@ function setupAutocomplete(inputId, listId, sourceArray) {
 }
 
 async function popularAgentes() {
-    const motoristaInput = document.getElementById('motorista-input');
-    const operadorInput = document.getElementById('operador-input');
     try {
         const response = await fetch(AGENTES_API_URL);
         if (!response.ok) throw new Error('Falha ao buscar a lista de agentes.');
@@ -214,8 +230,8 @@ async function popularAgentes() {
         if (data.error) throw new Error(data.error);
         setupAutocomplete('motorista-input', 'motorista-list', data.agentes);
         setupAutocomplete('operador-input', 'operador-list', data.agentes);
-        motoristaInput.placeholder = "Digite para buscar...";
-        operadorInput.placeholder = "Digite para buscar...";
+        document.getElementById('motorista-input').placeholder = "Digite para buscar...";
+        document.getElementById('operador-input').placeholder = "Digite para buscar...";
     } catch (error) {
         alert("Não foi possível carregar a lista de nomes: " + error.message);
     }
