@@ -3,18 +3,26 @@ const AGENTES_API_URL = "https://script.google.com/macros/s/AKfycbxg6XocN88LKvq1
 const BAIRROS_API_URL = "https://script.google.com/macros/s/AKfycbw7VInWajEJflcf43PyWeiCh2IfRxVOlZjw3uiHgbKqO_12Y9ARUDnGxio6abnxxpdy/exec";
 const TOTAL_AREAS = 109;
 
+// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
 
+// Variáveis globais
 let quadrasLayer;
 const selectedQuadras = new Map();
 const selectedBairros = new Set();
 
+// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
 
+// --- Funções de Lógica e Estilo ---
+
 function getColorForArea(areaId) {
+    if (!areaId) return '#777';
     const hue = (areaId * 137.508) % 360;
     return `hsl(${hue}, 80%, 50%)`;
 }
@@ -33,23 +41,6 @@ function getAreaId(feature) {
         catch(e) { return null; }
     }
     return null;
-}
-
-/**
- * Calcula a área de um polígono usando a fórmula de Shoelace em coordenadas geográficas.
- * @param {Array<L.LatLng>} latLngs - Um array de coordenadas do Leaflet.
- * @returns {number} - A área em metros quadrados.
- */
-function calculatePolygonArea(latLngs) {
-    if (!latLngs || latLngs.length < 3) return 0;
-    let area = 0;
-    const R = 6378137; // Raio da Terra em metros
-    for (let i = 0; i < latLngs.length; i++) {
-        let p1 = latLngs[i];
-        let p2 = latLngs[(i + 1) % latLngs.length];
-        area += (p2.lng * Math.PI / 180 - p1.lng * Math.PI / 180) * (2 + Math.sin(p1.lat * Math.PI / 180) + Math.sin(p2.lat * Math.PI / 180));
-    }
-    return Math.abs(area * R * R / 2.0);
 }
 
 function updateSidebar() {
@@ -79,6 +70,7 @@ document.getElementById('quadras-list').addEventListener('click', function(e) {
     }
 });
 
+
 function getStyleForFeature(feature) {
     const quadraId = getQuadraId(feature);
     const areaId = getAreaId(feature);
@@ -94,7 +86,6 @@ function onQuadraClick(e) {
     const id = getQuadraId(layer.feature);
     const areaId = getAreaId(layer.feature);
     if (id === null || areaId === null) return;
-    
     const compositeKey = `${areaId}-${id}`;
 
     if (selectedQuadras.has(compositeKey)) {
@@ -103,11 +94,10 @@ function onQuadraClick(e) {
         let areaInSqMeters = 0;
         try {
             const latlngs = layer.getLatLngs();
-            const coordsToCalc = Array.isArray(latlngs[0][0]) ? latlngs[0][0] : latlngs[0];
-            areaInSqMeters = calculatePolygonArea(coordsToCalc);
+            const coordsToCalc = latlngs[0][0];
+            areaInSqMeters = L.GeometryUtil.geodesicArea(coordsToCalc);
         } catch (calcError) {
-            console.error("Erro ao calcular a área da quadra:", calcError);
-            areaInSqMeters = 0;
+             areaInSqMeters = 0;
         }
         selectedQuadras.set(compositeKey, { id: id, area: areaId, sqMeters: areaInSqMeters });
     }
@@ -116,45 +106,57 @@ function onQuadraClick(e) {
     updateSidebar();
 }
 
+
 function onEachFeature(feature, layer) {
     layer.on('click', onQuadraClick);
     const quadraId = getQuadraId(feature);
     if (quadraId !== null) {
-        layer.bindTooltip(quadraId.toString(), { permanent: true, direction: 'center', className: 'quadra-label' }).openTooltip();
+        layer.bindTooltip(quadraId.toString(), {
+            permanent: true, direction: 'center', className: 'quadra-label'
+        }).openTooltip();
     }
 }
 
+// --- LÓGICA DE AUTOCOMPLETE ATUALIZADA ---
 function setupAutocomplete(inputId, listId, sourceArray, onSelectCallback) {
     const input = document.getElementById(inputId);
     const listContainer = document.getElementById(listId);
+
     input.addEventListener("input", function() {
-        closeAllLists(listId);
         const val = this.value;
-        if (!val) return;
-        listContainer.style.display = "block";
-        sourceArray.forEach(item => {
-            if (item.toUpperCase().includes(val.toUpperCase())) {
-                const b = document.createElement("DIV");
-                b.innerHTML = item.replace(new RegExp(val, "gi"), "<strong>$&</strong>");
-                b.addEventListener("click", function() {
-                    onSelectCallback(item);
-                    closeAllLists();
-                });
-                listContainer.appendChild(b);
-            }
+        // Limpa a lista de sugestões anterior
+        listContainer.innerHTML = '';
+        if (!val) {
+            listContainer.style.display = 'none';
+            return;
+        }
+        
+        listContainer.style.display = 'block';
+        const suggestions = sourceArray.filter(item => item.toUpperCase().includes(val.toUpperCase()));
+
+        suggestions.forEach(item => {
+            const suggestionDiv = document.createElement("DIV");
+            suggestionDiv.innerHTML = item.replace(new RegExp(val, "gi"), "<strong>$&</strong>");
+            suggestionDiv.addEventListener("click", function() {
+                onSelectCallback(item);
+                closeAllLists();
+            });
+            listContainer.appendChild(suggestionDiv);
         });
     });
-    function closeAllLists(exceptListId) {
-        const items = document.getElementsByClassName("autocomplete-items");
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].id !== exceptListId) {
-                items[i].innerHTML = '';
-                items[i].style.display = 'none';
-            }
-        }
+
+    function closeAllLists() {
+        listContainer.innerHTML = '';
+        listContainer.style.display = 'none';
     }
-    document.addEventListener("click", e => { if (e.target !== input) closeAllLists(); });
+
+    document.addEventListener("click", function (e) {
+        if (e.target !== input) {
+            closeAllLists();
+        }
+    });
 }
+
 
 function renderBairroTags() {
     const container = document.getElementById('bairros-selecionados-container');
@@ -169,8 +171,7 @@ function renderBairroTags() {
 
 document.getElementById('bairros-selecionados-container').addEventListener('click', function(e) {
     if (e.target && e.target.classList.contains('remove-tag')) {
-        const bairroToRemove = e.target.dataset.bairro;
-        selectedBairros.delete(bairroToRemove);
+        selectedBairros.delete(e.target.dataset.bairro);
         renderBairroTags();
     }
 });
@@ -182,11 +183,13 @@ async function popularDadosIniciais() {
         const bairrosData = await bairrosRes.json();
         
         if (agentesData.error) throw new Error(agentesData.error);
-        if (bairrosData.error) throw new Error(`API de Bairros: ${bairrosData.error}`);
+        if (bairrosData.error || !bairrosData.agentes) throw new Error(`API de Bairros: ${bairrosData.error || 'formato de resposta inválido'}`);
 
+        // Configura o autocomplete para Motorista e Operador
         setupAutocomplete('motorista-input', 'motorista-list', agentesData.agentes, val => { document.getElementById('motorista-input').value = val; });
         setupAutocomplete('operador-input', 'operador-list', agentesData.agentes, val => { document.getElementById('operador-input').value = val; });
         
+        // Configura o autocomplete para Bairros (com seleção múltipla)
         setupAutocomplete('bairro-input', 'bairro-list', bairrosData.agentes, bairro => {
             selectedBairros.add(bairro);
             renderBairroTags();
@@ -197,7 +200,9 @@ async function popularDadosIniciais() {
         document.getElementById('operador-input').placeholder = "Digite para buscar...";
         document.getElementById('bairro-input').placeholder = "Digite para buscar...";
 
-    } catch(e) { alert("Erro ao carregar dados iniciais (Agentes ou Bairros). " + e.message); }
+    } catch(e) { 
+        alert("Erro ao carregar dados iniciais (Agentes ou Bairros). " + e.message); 
+    }
 }
 
 areaSelector.addEventListener('change', async (e) => {
