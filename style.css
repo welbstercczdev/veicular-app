@@ -10,7 +10,6 @@ input, select { width: 100%; padding: 8px; box-sizing: border-box; }
 button { width: 100%; padding: 10px; margin-top: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
 button:hover { background-color: #0056b3; }
 
-/* --- ESTILO ADICIONADO --- */
 .quadra-label {
     background-color: transparent;
     border: none;
@@ -18,10 +17,14 @@ button:hover { background-color: #0056b3; }
     color: #FFFFFF;
     font-size: 14px;
     font-weight: bold;
-    /* Contorno preto para o texto branco, garantindo legibilidade */
     text-shadow: 
         -1px -1px 0 #000,  
          1px -1px 0 #000,
         -1px  1px 0 #000,
          1px  1px 0 #000;
+}
+
+/* --- CLASSE ADICIONADA PARA A BUSCA --- */
+.option-hidden {
+    display: none;
 }
