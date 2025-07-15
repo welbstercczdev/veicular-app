@@ -24,7 +24,6 @@ button:hover { background-color: #0056b3; }
          1px  1px 0 #000;
 }
 
-/* --- ESTILOS ADICIONADOS PARA AUTOCOMPLETE --- */
 .autocomplete-container {
     position: relative;
 }
