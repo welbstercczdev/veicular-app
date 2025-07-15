@@ -24,7 +24,31 @@ button:hover { background-color: #0056b3; }
          1px  1px 0 #000;
 }
 
-/* --- CLASSE ADICIONADA PARA A BUSCA --- */
-.option-hidden {
-    display: none;
+/* --- ESTILOS ADICIONADOS PARA AUTOCOMPLETE --- */
+.autocomplete-container {
+    position: relative;
+}
+
+.autocomplete-items {
+    position: absolute;
+    border: 1px solid #d4d4d4;
+    border-bottom: none;
+    border-top: none;
+    z-index: 99;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.autocomplete-items div {
+    padding: 10px;
+    cursor: pointer;
+    background-color: #fff;
+    border-bottom: 1px solid #d4d4d4;
+}
+
+.autocomplete-items div:hover {
+    background-color: #e9e9e9;
 }
