@@ -56,7 +56,6 @@
             
             <hr>
             <h4>Quadras Selecionadas: <span id="count">0</span></h4>
-            <!-- NOVA LINHA PARA ÁREA TOTAL -->
             <h4>Área Total: <span id="total-area">0.00</span> m²</h4>
         </div>
         
@@ -68,9 +67,14 @@
     </div>
     <div id="map"></div>
 
+    <!-- A ORDEM DOS SCRIPTS É CRUCIAL -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <!-- NOVA BIBLIOTECA PARA CÁLCULO DE ÁREA -->
+
+    <!-- *** ESTA LINHA É A CORREÇÃO *** -->
+    <!-- Carrega a biblioteca de utilidades de geometria do Leaflet -->
     <script src="https://unpkg.com/leaflet-geometryutil@0.9.1/src/leaflet.geometryutil.js"></script>
+
+    <!-- O seu script principal vem por último -->
     <script src="gestor.js"></script>
 </body>
 </html>
