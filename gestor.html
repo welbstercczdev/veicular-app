@@ -47,16 +47,12 @@
                 </select>
             </div>
             
-            <!-- NOVO CAMPO PARA BAIRROS -->
             <div class="form-group autocomplete-container">
                 <label for="bairro-input">Bairros (adicione um ou mais):</label>
                 <input type="text" id="bairro-input" placeholder="Carregando bairros..." autocomplete="off">
                 <div class="autocomplete-items" id="bairro-list"></div>
-                <div id="bairros-selecionados-container">
-                    <!-- Bairros selecionados aparecerão aqui como tags -->
-                </div>
+                <div id="bairros-selecionados-container"></div>
             </div>
-            <!-- FIM DO NOVO CAMPO -->
             
             <div class="form-group">
                 <label for="area-selector">Carregar Área para Seleção:</label>
@@ -78,6 +74,7 @@
     </div>
     <div id="map"></div>
 
+    <!-- Ordem correta dos scripts -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-geometryutil@0.9.1/src/leaflet.geometryutil.js"></script>
     <script src="gestor.js"></script>
