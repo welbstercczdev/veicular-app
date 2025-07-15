@@ -2,12 +2,17 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYD
 const AGENTES_API_URL = "https://script.google.com/macros/s/AKfycbxg6XocN88LKvq1bv-ngEIWHjGG1XqF0ELSK9dFteunXo8a1R2AHeAH5xdfEulSZPzsgQ/exec";
 const TOTAL_AREAS = 109;
 
+// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
 
+// Variáveis globais
 let quadrasLayer;
 const selectedQuadras = new Map();
 
+// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
@@ -115,7 +120,6 @@ areaSelector.addEventListener('change', async (e) => {
 });
 
 document.getElementById('save-activity').addEventListener('click', async () => {
-    const saveButton = document.getElementById('save-activity');
     const id_atividade = document.getElementById('atividade-id').value.trim();
     const veiculo = document.getElementById('veiculo-select').value;
     const produto = document.getElementById('produto-select').value;
@@ -134,27 +138,20 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     const payload = { action: 'createActivity', id_atividade, veiculo, produto, motorista, operador, quadras: Array.from(selectedQuadras.values()) };
 
     try {
-        saveButton.disabled = true;
-        saveButton.textContent = 'Salvando...';
-
         await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-
         alert("Atividade enviada para salvamento! Verifique a planilha para confirmar.");
-        
         document.getElementById('atividade-id').value = '';
         document.getElementById('veiculo-select').value = '';
         document.getElementById('produto-select').value = '';
         document.getElementById('motorista-select').value = '';
         document.getElementById('operador-select').value = '';
+        document.getElementById('motorista-search').value = ''; // Limpa o campo de busca
+        document.getElementById('operador-search').value = '';   // Limpa o campo de busca
         selectedQuadras.clear();
         if (quadrasLayer) quadrasLayer.setStyle(getStyleForFeature);
         updateSidebar();
     } catch (error) {
         alert("Falha grave de rede. Não foi possível enviar a atividade.");
-        console.error('Save Activity Error:', error);
-    } finally {
-        saveButton.disabled = false;
-        saveButton.textContent = 'Salvar Atividade';
     }
 });
 
@@ -167,6 +164,37 @@ function popularSeletorDeAreas() {
     }
 }
 
+/**
+ * Filtra as opções de um elemento <select> com base no texto de um <input>.
+ */
+function setupSearchableSelect(inputId, selectId) {
+    const input = document.getElementById(inputId);
+    const select = document.getElementById(selectId);
+
+    input.addEventListener('keyup', function() {
+        const filter = input.value.toUpperCase();
+        const options = select.getElementsByTagName('option');
+
+        for (let i = 0; i < options.length; i++) {
+            const txtValue = options[i].textContent || options[i].innerText;
+            // Mantém a primeira opção (ex: "Selecione...") sempre visível
+            if (options[i].value === "") {
+                options[i].classList.remove('option-hidden');
+                continue;
+            }
+            
+            if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                options[i].classList.remove('option-hidden');
+            } else {
+                options[i].classList.add('option-hidden');
+            }
+        }
+    });
+}
+
+/**
+ * Busca a lista de agentes da API e preenche os menus.
+ */
 async function popularAgentes() {
     const motoristaSelect = document.getElementById('motorista-select');
     const operadorSelect = document.getElementById('operador-select');
@@ -175,24 +203,33 @@ async function popularAgentes() {
         if (!response.ok) throw new Error('Falha ao buscar a lista de agentes.');
         const data = await response.json();
         if (data.error) throw new Error(data.error);
+
         motoristaSelect.innerHTML = '<option value="">Selecione o motorista...</option>';
         operadorSelect.innerHTML = '<option value="">Selecione o operador...</option>';
+
         data.agentes.forEach(nome => {
             const optionMotorista = document.createElement('option');
             optionMotorista.value = nome;
             optionMotorista.textContent = nome;
             motoristaSelect.appendChild(optionMotorista);
+
             const optionOperador = document.createElement('option');
             optionOperador.value = nome;
             optionOperador.textContent = nome;
             operadorSelect.appendChild(optionOperador);
         });
+
     } catch (error) {
-        alert("Não foi possível carregar a lista de nomes. Verifique a API de Agentes.");
+        alert("Não foi possível carregar a lista de nomes: " + error.message);
     }
 }
 
+// Inicia a aplicação do gestor
 document.addEventListener('DOMContentLoaded', () => {
     popularSeletorDeAreas();
     popularAgentes();
+
+    // Conecta a busca aos menus de seleção
+    setupSearchableSelect('motorista-search', 'motorista-select');
+    setupSearchableSelect('operador-search', 'operador-select');
 });
