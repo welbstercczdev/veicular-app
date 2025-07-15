@@ -3,23 +3,16 @@ const AGENTES_API_URL = "https://script.google.com/macros/s/AKfycbxg6XocN88LKvq1
 const BAIRROS_API_URL = "https://script.google.com/macros/s/AKfycbw7VInWajEJflcf43PyWeiCh2IfRxVOlZjw3uiHgbKqO_12Y9ARUDnGxio6abnxxpdy/exec";
 const TOTAL_AREAS = 109;
 
-// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Variáveis globais
 let quadrasLayer;
 const selectedQuadras = new Map();
 const selectedBairros = new Set();
 
-// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
-
-// --- FUNÇÕES DE LÓGICA E ESTILO ---
 
 function getColorForArea(areaId) {
     const hue = (areaId * 137.508) % 360;
@@ -40,6 +33,23 @@ function getAreaId(feature) {
         catch(e) { return null; }
     }
     return null;
+}
+
+/**
+ * Calcula a área de um polígono usando a fórmula de Shoelace em coordenadas geográficas.
+ * @param {Array<L.LatLng>} latLngs - Um array de coordenadas do Leaflet.
+ * @returns {number} - A área em metros quadrados.
+ */
+function calculatePolygonArea(latLngs) {
+    if (!latLngs || latLngs.length < 3) return 0;
+    let area = 0;
+    const R = 6378137; // Raio da Terra em metros
+    for (let i = 0; i < latLngs.length; i++) {
+        let p1 = latLngs[i];
+        let p2 = latLngs[(i + 1) % latLngs.length];
+        area += (p2.lng * Math.PI / 180 - p1.lng * Math.PI / 180) * (2 + Math.sin(p1.lat * Math.PI / 180) + Math.sin(p2.lat * Math.PI / 180));
+    }
+    return Math.abs(area * R * R / 2.0);
 }
 
 function updateSidebar() {
@@ -69,7 +79,6 @@ document.getElementById('quadras-list').addEventListener('click', function(e) {
     }
 });
 
-
 function getStyleForFeature(feature) {
     const quadraId = getQuadraId(feature);
     const areaId = getAreaId(feature);
@@ -80,7 +89,6 @@ function getStyleForFeature(feature) {
         { color: borderColor, weight: 2, opacity: 0.8, fillColor: '#6c757d', fillOpacity: 0.3 };
 }
 
-// --- FUNÇÃO onQuadraClick CORRIGIDA ---
 function onQuadraClick(e) {
     const layer = e.target;
     const id = getQuadraId(layer.feature);
@@ -94,37 +102,25 @@ function onQuadraClick(e) {
     } else {
         let areaInSqMeters = 0;
         try {
-            // Pega as coordenadas da camada. Leaflet lida com a estrutura interna.
             const latlngs = layer.getLatLngs();
-
-            // Para MultiPolygon, latlngs é um array de polígonos. Ex: [[...], [...]].
-            // Para Polygon, latlngs é um array de anéis. Ex: [[...]].
-            // O contorno principal é sempre o primeiro elemento.
-            const coordsToCalc = latlngs[0];
-            
-            // L.GeometryUtil é adicionado pela biblioteca externa.
-            areaInSqMeters = L.GeometryUtil.geodesicArea(coordsToCalc);
+            const coordsToCalc = Array.isArray(latlngs[0][0]) ? latlngs[0][0] : latlngs[0];
+            areaInSqMeters = calculatePolygonArea(coordsToCalc);
         } catch (calcError) {
-            console.error("Não foi possível calcular a área da quadra. Verifique a geometria e se a biblioteca 'leaflet.geometryutil.js' está carregada.", calcError);
+            console.error("Erro ao calcular a área da quadra:", calcError);
             areaInSqMeters = 0;
         }
-
         selectedQuadras.set(compositeKey, { id: id, area: areaId, sqMeters: areaInSqMeters });
     }
     
     layer.setStyle(getStyleForFeature(layer.feature));
     updateSidebar();
 }
-// --- FIM DA CORREÇÃO ---
-
 
 function onEachFeature(feature, layer) {
     layer.on('click', onQuadraClick);
     const quadraId = getQuadraId(feature);
     if (quadraId !== null) {
-        layer.bindTooltip(quadraId.toString(), {
-            permanent: true, direction: 'center', className: 'quadra-label'
-        }).openTooltip();
+        layer.bindTooltip(quadraId.toString(), { permanent: true, direction: 'center', className: 'quadra-label' }).openTooltip();
     }
 }
 
@@ -191,7 +187,6 @@ async function popularDadosIniciais() {
         setupAutocomplete('motorista-input', 'motorista-list', agentesData.agentes, val => { document.getElementById('motorista-input').value = val; });
         setupAutocomplete('operador-input', 'operador-list', agentesData.agentes, val => { document.getElementById('operador-input').value = val; });
         
-        // A API de bairros retorna 'agentes' em vez de 'bairros', ajustamos para usar 'agentes'.
         setupAutocomplete('bairro-input', 'bairro-list', bairrosData.agentes, bairro => {
             selectedBairros.add(bairro);
             renderBairroTags();
@@ -239,6 +234,7 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     try {
         await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
         alert("Atividade enviada para salvamento! Verifique a planilha para confirmar.");
+        
         document.getElementById('atividade-id').value = '';
         document.getElementById('veiculo-select').value = '';
         document.getElementById('produto-select').value = '';
