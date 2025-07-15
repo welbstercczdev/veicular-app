@@ -2,22 +2,15 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYD
 const AGENTES_API_URL = "https://script.google.com/macros/s/AKfycbxg6XocN88LKvq1bv-ngEIWHjGG1XqF0ELSK9dFteunXo8a1R2AHeAH5xdfEulSZPzsgQ/exec";
 const TOTAL_AREAS = 109;
 
-// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Variáveis globais
 let quadrasLayer;
 const selectedQuadras = new Map();
 
-// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
-
-// --- FUNÇÕES DE LÓGICA E ESTILO ---
 
 function getColorForArea(areaId) {
     const hue = (areaId * 137.508) % 360;
@@ -42,16 +35,21 @@ function getAreaId(feature) {
 
 function updateSidebar() {
     quadrasSelecionadasList.innerHTML = '';
+    let totalArea = 0; // Inicia a variável para somar a área
+
     const sortedQuadras = Array.from(selectedQuadras.values()).sort((a, b) => {
         if (a.area !== b.area) return a.area - b.area;
         return a.id - b.id;
     });
 
     sortedQuadras.forEach((quadra) => {
+        totalArea += quadra.sqMeters; // Soma a área de cada quadra selecionada
+        
         const li = document.createElement('li');
         li.style = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; padding: 2px;';
         const text = document.createElement('span');
-        text.textContent = `Área ${quadra.area} - Quadra ${quadra.id}`;
+        text.textContent = `Área ${quadra.area} - Quadra ${quadra.id} (${quadra.sqMeters.toFixed(2)} m²)`; // Exibe a área individual
+        
         const removeBtn = document.createElement('button');
         removeBtn.textContent = 'X';
         removeBtn.style = 'width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px;';
@@ -65,7 +63,9 @@ function updateSidebar() {
         li.appendChild(removeBtn);
         quadrasSelecionadasList.appendChild(li);
     });
+    
     countSpan.textContent = selectedQuadras.size;
+    document.getElementById('total-area').textContent = totalArea.toFixed(2); // Atualiza o total na tela
 }
 
 function getStyleForFeature(feature) {
@@ -81,14 +81,22 @@ function getStyleForFeature(feature) {
 function onQuadraClick(e) {
     const layer = e.target;
     const id = getQuadraId(layer.feature);
-    const area = getAreaId(layer.feature);
-    if (id === null || area === null) return;
-    const compositeKey = `${area}-${id}`;
+    const areaId = getAreaId(layer.feature);
+    if (id === null || areaId === null) return;
+    
+    const compositeKey = `${areaId}-${id}`;
+
     if (selectedQuadras.has(compositeKey)) {
         selectedQuadras.delete(compositeKey);
     } else {
-        selectedQuadras.set(compositeKey, { id: id, area: area });
+        // Calcula a área da quadra ao selecioná-la
+        const latlngs = layer.getLatLngs()[0];
+        const areaInSqMeters = L.GeometryUtil.geodesicArea(latlngs);
+        
+        // Armazena a área junto com os outros dados
+        selectedQuadras.set(compositeKey, { id: id, area: areaId, sqMeters: areaInSqMeters });
     }
+    
     layer.setStyle(getStyleForFeature(layer.feature));
     updateSidebar();
 }
@@ -100,72 +108,6 @@ function onEachFeature(feature, layer) {
         layer.bindTooltip(quadraId.toString(), {
             permanent: true, direction: 'center', className: 'quadra-label'
         }).openTooltip();
-    }
-}
-
-// --- LÓGICA DE AUTOCOMPLETE ---
-function setupAutocomplete(inputId, listId, sourceArray) {
-    const input = document.getElementById(inputId);
-    const listContainer = document.getElementById(listId);
-
-    input.addEventListener("input", function(e) {
-        closeAllLists();
-        const val = this.value;
-        if (!val) { return false; }
-        
-        listContainer.style.display = "block";
-
-        sourceArray.forEach(item => {
-            if (item.toUpperCase().indexOf(val.toUpperCase()) > -1) {
-                const suggestionDiv = document.createElement("DIV");
-                // Destaca os caracteres correspondentes
-                const matchIndex = item.toUpperCase().indexOf(val.toUpperCase());
-                suggestionDiv.innerHTML = item.substr(0, matchIndex);
-                suggestionDiv.innerHTML += "<strong>" + item.substr(matchIndex, val.length) + "</strong>";
-                suggestionDiv.innerHTML += item.substr(matchIndex + val.length);
-                
-                suggestionDiv.addEventListener("click", function(e) {
-                    input.value = item;
-                    closeAllLists();
-                });
-                listContainer.appendChild(suggestionDiv);
-            }
-        });
-    });
-
-    function closeAllLists() {
-        const items = document.getElementsByClassName("autocomplete-items");
-        for (let i = 0; i < items.length; i++) {
-            items[i].innerHTML = '';
-            items[i].style.display = "none";
-        }
-    }
-
-    document.addEventListener("click", function (e) {
-        if (e.target !== input) {
-            closeAllLists();
-        }
-    });
-}
-
-// --- FUNÇÕES DE CARREGAMENTO E ENVIO ---
-
-async function popularAgentes() {
-    try {
-        const response = await fetch(AGENTES_API_URL);
-        if (!response.ok) throw new Error('Falha ao buscar a lista de agentes.');
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
-
-        setupAutocomplete('motorista-input', 'motorista-list', data.agentes);
-        setupAutocomplete('operador-input', 'operador-list', data.agentes);
-
-        // Limpa a mensagem "Carregando..."
-        document.getElementById('motorista-input').placeholder = "Digite para buscar...";
-        document.getElementById('operador-input').placeholder = "Digite para buscar...";
-
-    } catch (error) {
-        alert("Não foi possível carregar a lista de nomes: " + error.message);
     }
 }
 
@@ -194,8 +136,12 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     const motorista = document.getElementById('motorista-input').value.trim();
     const operador = document.getElementById('operador-input').value.trim();
 
-    if (!id_atividade || !veiculo || !produto || !motorista || !operador || selectedQuadras.size === 0) {
-        alert("Preencha todos os campos e selecione ao menos uma quadra.");
+    if (!id_atividade || !veiculo || !produto || !motorista || !operador) {
+        alert("Por favor, preencha todos os campos da atividade.");
+        return;
+    }
+    if (selectedQuadras.size === 0) {
+        alert("Selecione pelo menos uma quadra no mapa.");
         return;
     }
     
@@ -203,7 +149,6 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     try {
         await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
         alert("Atividade enviada para salvamento! Verifique a planilha para confirmar.");
-        
         document.getElementById('atividade-id').value = '';
         document.getElementById('veiculo-select').value = '';
         document.getElementById('produto-select').value = '';
@@ -226,7 +171,56 @@ function popularSeletorDeAreas() {
     }
 }
 
-// Inicia a aplicação do gestor
+function setupAutocomplete(inputId, listId, sourceArray) {
+    const input = document.getElementById(inputId);
+    const listContainer = document.getElementById(listId);
+    input.addEventListener("input", function() {
+        closeAllLists();
+        const val = this.value;
+        if (!val) return false;
+        listContainer.style.display = "block";
+        sourceArray.forEach(item => {
+            if (item.toUpperCase().indexOf(val.toUpperCase()) > -1) {
+                const b = document.createElement("DIV");
+                const matchIndex = item.toUpperCase().indexOf(val.toUpperCase());
+                b.innerHTML = item.substr(0, matchIndex) + "<strong>" + item.substr(matchIndex, val.length) + "</strong>" + item.substr(matchIndex + val.length);
+                b.addEventListener("click", function() {
+                    input.value = item;
+                    closeAllLists();
+                });
+                listContainer.appendChild(b);
+            }
+        });
+    });
+    function closeAllLists() {
+        const items = document.getElementsByClassName("autocomplete-items");
+        for (let i = 0; i < items.length; i++) {
+            items[i].innerHTML = '';
+            items[i].style.display = "none";
+        }
+    }
+    document.addEventListener("click", function (e) {
+        if (e.target !== input) closeAllLists();
+    });
+}
+
+async function popularAgentes() {
+    const motoristaInput = document.getElementById('motorista-input');
+    const operadorInput = document.getElementById('operador-input');
+    try {
+        const response = await fetch(AGENTES_API_URL);
+        if (!response.ok) throw new Error('Falha ao buscar a lista de agentes.');
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        setupAutocomplete('motorista-input', 'motorista-list', data.agentes);
+        setupAutocomplete('operador-input', 'operador-list', data.agentes);
+        motoristaInput.placeholder = "Digite para buscar...";
+        operadorInput.placeholder = "Digite para buscar...";
+    } catch (error) {
+        alert("Não foi possível carregar a lista de nomes: " + error.message);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     popularSeletorDeAreas();
     popularAgentes();
