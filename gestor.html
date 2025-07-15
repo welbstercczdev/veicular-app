@@ -26,20 +26,17 @@
                 </select>
             </div>
 
-            <!-- CAMPOS ATUALIZADOS PARA A DUPLA COM BUSCA -->
-            <div class="form-group">
-                <label for="motorista-search">Buscar Motorista:</label>
-                <input type="text" id="motorista-search" placeholder="Digite para buscar...">
-                <select id="motorista-select" size="5">
-                    <option value="">Carregando nomes...</option>
-                </select>
+            <!-- CAMPOS ATUALIZADOS PARA A DUPLA COM AUTOCOMPLETE -->
+            <div class="form-group autocomplete-container">
+                <label for="motorista-input">Motorista:</label>
+                <input type="text" id="motorista-input" placeholder="Digite para buscar..." autocomplete="off">
+                <div class="autocomplete-items" id="motorista-list"></div>
             </div>
-            <div class="form-group">
-                <label for="operador-search">Buscar Operador:</label>
-                <input type="text" id="operador-search" placeholder="Digite para buscar...">
-                <select id="operador-select" size="5">
-                    <option value="">Carregando nomes...</option>
-                </select>
+
+            <div class="form-group autocomplete-container">
+                <label for="operador-input">Operador:</label>
+                <input type="text" id="operador-input" placeholder="Digite para buscar..." autocomplete="off">
+                <div class="autocomplete-items" id="operador-list"></div>
             </div>
             <!-- FIM DOS CAMPOS DA DUPLA -->
 
