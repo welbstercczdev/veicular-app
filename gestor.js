@@ -1,14 +1,14 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
 const AGENTES_API_URL = "https://script.google.com/macros/s/AKfycbxg6XocN88LKvq1bv-ngEIWHjGG1XqF0ELSK9dFteunXo8a1R2AHeAH5xdfEulSZPzsgQ/exec";
+const BAIRROS_API_URL = "https://script.google.com/macros/s/AKfycbw7VInWajEJflcf43PyWeiCh2IfRxVOlZjw3uiHgbKqO_12Y9ARUDnGxio6abnxxpdy/exec";
 const TOTAL_AREAS = 109;
 
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let quadrasLayer;
 const selectedQuadras = new Map();
+const selectedBairros = new Set();
 
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
@@ -38,37 +38,30 @@ function getAreaId(feature) {
 function updateSidebar() {
     quadrasSelecionadasList.innerHTML = '';
     let totalArea = 0;
-
-    const sortedQuadras = Array.from(selectedQuadras.values()).sort((a, b) => {
-        if (a.area !== b.area) return a.area - b.area;
-        return a.id - b.id;
-    });
-
+    const sortedQuadras = Array.from(selectedQuadras.values()).sort((a, b) => (a.area - b.area) || (a.id - b.id));
+    
     sortedQuadras.forEach((quadra) => {
-        totalArea += quadra.sqMeters; 
-        
+        totalArea += quadra.sqMeters;
         const li = document.createElement('li');
-        li.style = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; padding: 2px;';
-        const text = document.createElement('span');
-        text.textContent = `Área ${quadra.area} - Quadra ${quadra.id} (${quadra.sqMeters.toFixed(2)} m²)`;
-        
-        const removeBtn = document.createElement('button');
-        removeBtn.textContent = 'X';
-        removeBtn.style = 'width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px;';
-        removeBtn.onclick = () => {
-            const compositeKey = `${quadra.area}-${quadra.id}`;
-            selectedQuadras.delete(compositeKey);
-            if(quadrasLayer) quadrasLayer.setStyle(getStyleForFeature);
-            updateSidebar();
-        };
-        li.appendChild(text);
-        li.appendChild(removeBtn);
+        li.style = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;';
+        li.innerHTML = `<span>Área ${quadra.area} - Quadra ${quadra.id} (${quadra.sqMeters.toFixed(2)} m²)</span>
+                        <button class="remove-quadra-btn" data-key="${quadra.area}-${quadra.id}" style="width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px;">X</button>`;
         quadrasSelecionadasList.appendChild(li);
     });
     
     countSpan.textContent = selectedQuadras.size;
     document.getElementById('total-area').textContent = totalArea.toFixed(2);
 }
+
+document.getElementById('quadras-list').addEventListener('click', function(e) {
+    if (e.target && e.target.classList.contains('remove-quadra-btn')) {
+        const key = e.target.dataset.key;
+        selectedQuadras.delete(key);
+        if (quadrasLayer) quadrasLayer.setStyle(getStyleForFeature);
+        updateSidebar();
+    }
+});
+
 
 function getStyleForFeature(feature) {
     const quadraId = getQuadraId(feature);
@@ -80,65 +73,106 @@ function getStyleForFeature(feature) {
         { color: borderColor, weight: 2, opacity: 0.8, fillColor: '#6c757d', fillOpacity: 0.3 };
 }
 
-// --- FUNÇÃO CORRIGIDA ---
 function onQuadraClick(e) {
     const layer = e.target;
     const id = getQuadraId(layer.feature);
     const areaId = getAreaId(layer.feature);
     if (id === null || areaId === null) return;
-    
     const compositeKey = `${areaId}-${id}`;
-
     if (selectedQuadras.has(compositeKey)) {
         selectedQuadras.delete(compositeKey);
     } else {
-        let areaInSqMeters = 0;
-        const geometryType = layer.feature.geometry.type;
-        
-        // Função interna para calcular a área de um polígono simples
-        const calculatePolygonArea = (latlngs) => {
-            let area = 0;
-            if (latlngs && latlngs.length > 2) {
-                const points = latlngs.map(latlng => map.project(latlng, map.getMaxZoom()));
-                for (let i = 0; i < points.length; i++) {
-                    const p1 = points[i];
-                    const p2 = points[(i + 1) % points.length];
-                    area += (p1.x * p2.y) - (p2.x * p1.y);
-                }
-                area = Math.abs(area / 2);
-            }
-            return area;
-        };
-
-        const latlngs = layer.getLatLngs();
-        
-        if (geometryType === 'Polygon') {
-            // Para Polígonos, o anel externo é o primeiro elemento.
-            areaInSqMeters = calculatePolygonArea(latlngs[0]);
-        } else if (geometryType === 'MultiPolygon') {
-            // Para MultiPolígonos, iteramos sobre cada polígono que o compõe.
-            latlngs.forEach(polygon => {
-                areaInSqMeters += calculatePolygonArea(polygon[0]);
-            });
-        }
-
+        const latlngs = layer.getLatLngs()[0];
+        const areaInSqMeters = L.GeometryUtil.geodesicArea(latlngs);
         selectedQuadras.set(compositeKey, { id: id, area: areaId, sqMeters: areaInSqMeters });
     }
-    
     layer.setStyle(getStyleForFeature(layer.feature));
     updateSidebar();
 }
-// --- FIM DA CORREÇÃO ---
 
 function onEachFeature(feature, layer) {
     layer.on('click', onQuadraClick);
     const quadraId = getQuadraId(feature);
     if (quadraId !== null) {
-        layer.bindTooltip(quadraId.toString(), {
-            permanent: true, direction: 'center', className: 'quadra-label'
-        }).openTooltip();
+        layer.bindTooltip(quadraId.toString(), { permanent: true, direction: 'center', className: 'quadra-label' }).openTooltip();
     }
 }
+
+function setupAutocomplete(inputId, listId, sourceArray, onSelectCallback) {
+    const input = document.getElementById(inputId);
+    const listContainer = document.getElementById(listId);
+    input.addEventListener("input", function() {
+        closeAllLists(listId);
+        const val = this.value;
+        if (!val) return;
+        listContainer.style.display = "block";
+        sourceArray.forEach(item => {
+            if (item.toUpperCase().includes(val.toUpperCase())) {
+                const b = document.createElement("DIV");
+                b.innerHTML = item.replace(new RegExp(val, "gi"), "<strong>$&</strong>");
+                b.addEventListener("click", function() {
+                    onSelectCallback(item);
+                    closeAllLists();
+                });
+                listContainer.appendChild(b);
+            }
+        });
+    });
+    function closeAllLists(exceptListId) {
+        const items = document.getElementsByClassName("autocomplete-items");
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].id !== exceptListId) {
+                items[i].innerHTML = '';
+                items[i].style.display = 'none';
+            }
+        }
+    }
+    document.addEventListener("click", e => { if (e.target !== input) closeAllLists(); });
+}
+
+function renderBairroTags() {
+    const container = document.getElementById('bairros-selecionados-container');
+    container.innerHTML = '';
+    selectedBairros.forEach(bairro => {
+        const tag = document.createElement('div');
+        tag.className = 'bairro-tag';
+        tag.innerHTML = `<span>${bairro}</span><span class="remove-tag" data-bairro="${bairro}">×</span>`;
+        container.appendChild(tag);
+    });
+}
+
+document.getElementById('bairros-selecionados-container').addEventListener('click', function(e) {
+    if (e.target && e.target.classList.contains('remove-tag')) {
+        const bairroToRemove = e.target.dataset.bairro;
+        selectedBairros.delete(bairroToRemove);
+        renderBairroTags();
+    }
+});
+
+async function popularDadosIniciais() {
+    try {
+        const [agentesRes, bairrosRes] = await Promise.all([ fetch(AGENTES_API_URL), fetch(BAIRROS_API_URL) ]);
+        const agentesData = await agentesRes.json();
+        const bairrosData = await bairrosRes.json();
+        
+        if (agentesData.error) throw new Error(agentesData.error);
+        if (bairrosData.error) throw new Error(bairrosData.error);
+
+        setupAutocomplete('motorista-input', 'motorista-list', agentesData.agentes, val => { document.getElementById('motorista-input').value = val; });
+        setupAutocomplete('operador-input', 'operador-list', agentesData.agentes, val => { document.getElementById('operador-input').value = val; });
+        setupAutocomplete('bairro-input', 'bairro-list', bairrosData.agentes, bairro => {
+            selectedBairros.add(bairro);
+            renderBairroTags();
+            document.getElementById('bairro-input').value = '';
+        });
+        
+        document.getElementById('motorista-input').placeholder = "Digite para buscar...";
+        document.getElementById('operador-input').placeholder = "Digite para buscar...";
+        document.getElementById('bairro-input').placeholder = "Digite para buscar...";
+
+    } catch(e) { alert("Erro ao carregar dados iniciais (Agentes ou Bairros)."); }
+}
+
 
 areaSelector.addEventListener('change', async (e) => {
     const areaId = e.target.value;
@@ -148,10 +182,7 @@ areaSelector.addEventListener('change', async (e) => {
         const quadrasResponse = await fetch(`data/${areaId}.geojson?v=${new Date().getTime()}`);
         if (!quadrasResponse.ok) throw new Error(`Arquivo da Área ${areaId} não encontrado.`);
         const quadrasGeoJSON = await quadrasResponse.json();
-        quadrasLayer = L.geoJSON(quadrasGeoJSON, {
-            style: getStyleForFeature,
-            onEachFeature: onEachFeature
-        }).addTo(map);
+        quadrasLayer = L.geoJSON(quadrasGeoJSON, { style: getStyleForFeature, onEachFeature: onEachFeature }).addTo(map);
         if(quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
     } catch (error) {
         alert(`Erro ao carregar dados da área: ${error.message}`);
@@ -159,26 +190,33 @@ areaSelector.addEventListener('change', async (e) => {
 });
 
 document.getElementById('save-activity').addEventListener('click', async () => {
-    const id_atividade = document.getElementById('atividade-id').value.trim();
-    const veiculo = document.getElementById('veiculo-select').value;
-    const produto = document.getElementById('produto-select').value;
-    const motorista = document.getElementById('motorista-input').value.trim();
-    const operador = document.getElementById('operador-input').value.trim();
+    const payload = {
+        action: 'createActivity',
+        id_atividade: document.getElementById('atividade-id').value.trim(),
+        veiculo: document.getElementById('veiculo-select').value,
+        produto: document.getElementById('produto-select').value,
+        motorista: document.getElementById('motorista-input').value.trim(),
+        operador: document.getElementById('operador-input').value.trim(),
+        bairros: Array.from(selectedBairros).join(', '),
+        quadras: Array.from(selectedQuadras.values())
+    };
 
-    if (!id_atividade || !veiculo || !produto || !motorista || !operador || selectedQuadras.size === 0) {
-        alert("Preencha todos os campos e selecione ao menos uma quadra.");
-        return;
+    if (!payload.id_atividade || !payload.veiculo || !payload.produto || !payload.bairros || !payload.motorista || !payload.operador || payload.quadras.length === 0) {
+        alert("Preencha todos os campos, incluindo ao menos um bairro e uma quadra."); return;
     }
-    
-    const payload = { action: 'createActivity', id_atividade, veiculo, produto, motorista, operador, quadras: Array.from(selectedQuadras.values()) };
+
     try {
         await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
         alert("Atividade enviada para salvamento! Verifique a planilha para confirmar.");
+        
         document.getElementById('atividade-id').value = '';
         document.getElementById('veiculo-select').value = '';
         document.getElementById('produto-select').value = '';
         document.getElementById('motorista-input').value = '';
         document.getElementById('operador-input').value = '';
+        document.getElementById('bairro-input').value = '';
+        selectedBairros.clear();
+        renderBairroTags();
         selectedQuadras.clear();
         if (quadrasLayer) quadrasLayer.setStyle(getStyleForFeature);
         updateSidebar();
@@ -196,55 +234,7 @@ function popularSeletorDeAreas() {
     }
 }
 
-function setupAutocomplete(inputId, listId, sourceArray) {
-    const input = document.getElementById(inputId);
-    const listContainer = document.getElementById(listId);
-    input.addEventListener("input", function() {
-        closeAllLists();
-        const val = this.value;
-        if (!val) return false;
-        listContainer.style.display = "block";
-        sourceArray.forEach(item => {
-            if (item.toUpperCase().indexOf(val.toUpperCase()) > -1) {
-                const b = document.createElement("DIV");
-                const matchIndex = item.toUpperCase().indexOf(val.toUpperCase());
-                b.innerHTML = item.substr(0, matchIndex) + "<strong>" + item.substr(matchIndex, val.length) + "</strong>" + item.substr(matchIndex + val.length);
-                b.addEventListener("click", function() {
-                    input.value = item;
-                    closeAllLists();
-                });
-                listContainer.appendChild(b);
-            }
-        });
-    });
-    function closeAllLists() {
-        const items = document.getElementsByClassName("autocomplete-items");
-        for (let i = 0; i < items.length; i++) {
-            items[i].innerHTML = '';
-            items[i].style.display = "none";
-        }
-    }
-    document.addEventListener("click", function (e) {
-        if (e.target !== input) closeAllLists();
-    });
-}
-
-async function popularAgentes() {
-    try {
-        const response = await fetch(AGENTES_API_URL);
-        if (!response.ok) throw new Error('Falha ao buscar a lista de agentes.');
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
-        setupAutocomplete('motorista-input', 'motorista-list', data.agentes);
-        setupAutocomplete('operador-input', 'operador-list', data.agentes);
-        document.getElementById('motorista-input').placeholder = "Digite para buscar...";
-        document.getElementById('operador-input').placeholder = "Digite para buscar...";
-    } catch (error) {
-        alert("Não foi possível carregar a lista de nomes: " + error.message);
-    }
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     popularSeletorDeAreas();
-    popularAgentes();
+    popularDadosIniciais();
 });
