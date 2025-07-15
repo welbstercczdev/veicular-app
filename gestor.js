@@ -2,17 +2,14 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYD
 const AGENTES_API_URL = "https://script.google.com/macros/s/AKfycbxg6XocN88LKvq1bv-ngEIWHjGG1XqF0ELSK9dFteunXo8a1R2AHeAH5xdfEulSZPzsgQ/exec";
 const TOTAL_AREAS = 109;
 
-// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
-// Variáveis globais
 let quadrasLayer;
 const selectedQuadras = new Map();
 
-// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
@@ -98,20 +95,16 @@ function onQuadraClick(e) {
         let areaInSqMeters = 0;
         const geometryType = layer.feature.geometry.type;
         
-        // Lógica para lidar com Polygon e MultiPolygon
         if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
             const latlngs = layer.getLatLngs();
-            // L.GeometryUtil.geodesicArea espera um array simples de pontos
-            // Para MultiPolygon, latlngs é um array de polígonos. Iteramos sobre eles.
-            // Para Polygon, latlngs é um array de "anéis" (o primeiro é a borda externa).
-            L.Util.each(latlngs, function(poly) {
-                // Pega a borda externa de cada polígono/parte do multipolígono
+            
+            // Usando o forEach padrão do JavaScript em vez do obsoleto L.Util.each
+            latlngs.forEach(function(poly) {
                 const outerRing = Array.isArray(poly[0]) ? poly[0] : poly;
                 areaInSqMeters += L.GeometryUtil.geodesicArea(outerRing);
             });
         }
 
-        // Armazena a área calculada junto com os outros dados
         selectedQuadras.set(compositeKey, { id: id, area: areaId, sqMeters: areaInSqMeters });
     }
     
@@ -150,6 +143,7 @@ areaSelector.addEventListener('change', async (e) => {
 });
 
 document.getElementById('save-activity').addEventListener('click', async () => {
+    // ... esta função permanece a mesma ...
     const id_atividade = document.getElementById('atividade-id').value.trim();
     const veiculo = document.getElementById('veiculo-select').value;
     const produto = document.getElementById('produto-select').value;
@@ -181,6 +175,7 @@ document.getElementById('save-activity').addEventListener('click', async () => {
 });
 
 function popularSeletorDeAreas() {
+    // ... esta função permanece a mesma ...
     for (let i = 1; i <= TOTAL_AREAS; i++) {
         const option = document.createElement('option');
         option.value = i;
@@ -190,6 +185,7 @@ function popularSeletorDeAreas() {
 }
 
 function setupAutocomplete(inputId, listId, sourceArray) {
+    // ... esta função permanece a mesma ...
     const input = document.getElementById(inputId);
     const listContainer = document.getElementById(listId);
     input.addEventListener("input", function() {
@@ -223,6 +219,7 @@ function setupAutocomplete(inputId, listId, sourceArray) {
 }
 
 async function popularAgentes() {
+    // ... esta função permanece a mesma ...
     try {
         const response = await fetch(AGENTES_API_URL);
         if (!response.ok) throw new Error('Falha ao buscar a lista de agentes.');
