@@ -3,26 +3,19 @@ const AGENTES_API_URL = "https://script.google.com/macros/s/AKfycbxg6XocN88LKvq1
 const BAIRROS_API_URL = "https://script.google.com/macros/s/AKfycbw7VInWajEJflcf43PyWeiCh2IfRxVOlZjw3uiHgbKqO_12Y9ARUDnGxio6abnxxpdy/exec";
 const TOTAL_AREAS = 109;
 
-// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Variáveis globais
 let quadrasLayer;
 const selectedQuadras = new Map();
 const selectedBairros = new Set();
 
-// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
 
-// --- Funções de Lógica e Estilo ---
-
 function getColorForArea(areaId) {
-    if (!areaId) return '#777';
+    if (!areaId) return '#777'; // Cor padrão para áreas indefinidas
     const hue = (areaId * 137.508) % 360;
     return `hsl(${hue}, 80%, 50%)`;
 }
@@ -41,6 +34,17 @@ function getAreaId(feature) {
         catch(e) { return null; }
     }
     return null;
+}
+
+function calculatePolygonArea(latlngs) {
+    if (!latlngs || latlngs.length < 3) return 0;
+    let area = 0;
+    for (let i = 0; i < latlngs.length; i++) {
+        let p1 = latlngs[i];
+        let p2 = latlngs[(i + 1) % latlngs.length];
+        area += (p2.lng - p1.lng) * (2 + Math.sin(p1.lat * Math.PI/180) + Math.sin(p2.lat * Math.PI/180));
+    }
+    return Math.abs(area * 6378137 * 6378137 / 2.0);
 }
 
 function updateSidebar() {
@@ -86,6 +90,7 @@ function onQuadraClick(e) {
     const id = getQuadraId(layer.feature);
     const areaId = getAreaId(layer.feature);
     if (id === null || areaId === null) return;
+    
     const compositeKey = `${areaId}-${id}`;
 
     if (selectedQuadras.has(compositeKey)) {
@@ -94,9 +99,10 @@ function onQuadraClick(e) {
         let areaInSqMeters = 0;
         try {
             const latlngs = layer.getLatLngs();
-            const coordsToCalc = latlngs[0][0];
-            areaInSqMeters = L.GeometryUtil.geodesicArea(coordsToCalc);
+            const coordsToCalc = latlngs[0][0]; // Extrai as coordenadas do aninhamento do MultiPolygon
+            areaInSqMeters = calculatePolygonArea(coordsToCalc);
         } catch (calcError) {
+             console.error("Não foi possível calcular a área da quadra:", calcError);
              areaInSqMeters = 0;
         }
         selectedQuadras.set(compositeKey, { id: id, area: areaId, sqMeters: areaInSqMeters });
@@ -105,7 +111,6 @@ function onQuadraClick(e) {
     layer.setStyle(getStyleForFeature(layer.feature));
     updateSidebar();
 }
-
 
 function onEachFeature(feature, layer) {
     layer.on('click', onQuadraClick);
@@ -117,46 +122,34 @@ function onEachFeature(feature, layer) {
     }
 }
 
-// --- LÓGICA DE AUTOCOMPLETE ATUALIZADA ---
 function setupAutocomplete(inputId, listId, sourceArray, onSelectCallback) {
     const input = document.getElementById(inputId);
     const listContainer = document.getElementById(listId);
-
     input.addEventListener("input", function() {
+        closeAllLists(listId);
         const val = this.value;
-        // Limpa a lista de sugestões anterior
+        if (!val) { listContainer.style.display = 'none'; return; }
         listContainer.innerHTML = '';
-        if (!val) {
-            listContainer.style.display = 'none';
-            return;
-        }
-        
-        listContainer.style.display = 'block';
-        const suggestions = sourceArray.filter(item => item.toUpperCase().includes(val.toUpperCase()));
-
-        suggestions.forEach(item => {
-            const suggestionDiv = document.createElement("DIV");
-            suggestionDiv.innerHTML = item.replace(new RegExp(val, "gi"), "<strong>$&</strong>");
-            suggestionDiv.addEventListener("click", function() {
-                onSelectCallback(item);
-                closeAllLists();
+        listContainer.style.display = "block";
+        sourceArray
+            .filter(item => item.toUpperCase().includes(val.toUpperCase()))
+            .forEach(item => {
+                const b = document.createElement("DIV");
+                b.innerHTML = item.replace(new RegExp(val, "gi"), "<strong>$&</strong>");
+                b.addEventListener("click", function() {
+                    onSelectCallback(item);
+                    closeAllLists();
+                });
+                listContainer.appendChild(b);
             });
-            listContainer.appendChild(suggestionDiv);
+    });
+    function closeAllLists(exceptListId) {
+        document.querySelectorAll(".autocomplete-items").forEach(item => {
+            if (item.id !== exceptListId) item.style.display = 'none';
         });
-    });
-
-    function closeAllLists() {
-        listContainer.innerHTML = '';
-        listContainer.style.display = 'none';
     }
-
-    document.addEventListener("click", function (e) {
-        if (e.target !== input) {
-            closeAllLists();
-        }
-    });
+    document.addEventListener("click", e => { if (e.target !== input) closeAllLists(); });
 }
-
 
 function renderBairroTags() {
     const container = document.getElementById('bairros-selecionados-container');
@@ -185,11 +178,9 @@ async function popularDadosIniciais() {
         if (agentesData.error) throw new Error(agentesData.error);
         if (bairrosData.error || !bairrosData.agentes) throw new Error(`API de Bairros: ${bairrosData.error || 'formato de resposta inválido'}`);
 
-        // Configura o autocomplete para Motorista e Operador
         setupAutocomplete('motorista-input', 'motorista-list', agentesData.agentes, val => { document.getElementById('motorista-input').value = val; });
         setupAutocomplete('operador-input', 'operador-list', agentesData.agentes, val => { document.getElementById('operador-input').value = val; });
         
-        // Configura o autocomplete para Bairros (com seleção múltipla)
         setupAutocomplete('bairro-input', 'bairro-list', bairrosData.agentes, bairro => {
             selectedBairros.add(bairro);
             renderBairroTags();
@@ -200,9 +191,7 @@ async function popularDadosIniciais() {
         document.getElementById('operador-input').placeholder = "Digite para buscar...";
         document.getElementById('bairro-input').placeholder = "Digite para buscar...";
 
-    } catch(e) { 
-        alert("Erro ao carregar dados iniciais (Agentes ou Bairros). " + e.message); 
-    }
+    } catch(e) { alert("Erro ao carregar dados iniciais: " + e.message); }
 }
 
 areaSelector.addEventListener('change', async (e) => {
