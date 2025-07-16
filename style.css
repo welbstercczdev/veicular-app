@@ -1,88 +1,53 @@
-/* Estilo geral */
-body { 
-    font-family: sans-serif; 
-    display: flex; 
-    height: 100vh; 
-    margin: 0; 
-}
-#map { 
-    flex-grow: 1; 
-    height: 100%; 
-}
-
-/* --- LÓGICA DE LAYOUT FLEXBOX ROBUSTA --- */
-#sidebar {
-    width: 350px;
-    padding: 15px;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-    display: flex;
-    flex-direction: column; /* Organiza os filhos em uma coluna */
-    height: 100vh;
-    box-sizing: border-box;
-}
-
-/* Container do formulário no topo */
-#form-container {
-    overflow-y: auto; /* Adiciona scroll se o formulário for muito grande */
-    flex-shrink: 0; /* Impede que o formulário encolha */
-}
-
-/* Container do resumo e da lista no meio */
-#selection-summary {
-    flex-grow: 1; /* Ocupa todo o espaço vertical disponível */
-    display: flex;
-    flex-direction: column;
-    min-height: 0; /* Correção crucial para o overflow em flexbox */
-    margin-top: 10px;
-}
-
-/* Container da lista de quadras com scroll interno */
-#quadras-container {
-    flex-grow: 1; /* Ocupa o espaço restante dentro do seu container pai */
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    padding: 5px;
-    margin-top: 10px;
-    border-radius: 4px;
-}
-
-/* O botão de salvar na base */
-#save-activity {
-    flex-shrink: 0; /* Impede que o botão encolha */
-    margin-top: 15px; /* Adiciona um espaçamento final */
-}
-/* --- FIM DA LÓGICA DE LAYOUT --- */
-
-
+body { font-family: sans-serif; display: flex; height: 100vh; margin: 0; }
+#map { flex-grow: 1; height: 100%; }
+#sidebar { width: 350px; padding: 15px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); overflow-y: auto; display: flex; flex-direction: column; }
+#sidebar h3, #sidebar h4 { margin-top: 0; }
+#quadras-container { flex-grow: 1; overflow-y: auto; border: 1px solid #ccc; padding: 5px; margin-bottom: 10px; }
 #quadras-list { list-style: none; padding: 0; margin: 0;}
 .form-group { margin-bottom: 15px; }
 label { display: block; margin-bottom: 5px; font-weight: bold; }
 input, select { width: 100%; padding: 8px; box-sizing: border-box; }
-/* Estilos para os botões */
-button { padding: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+button { width: 100%; padding: 10px; margin-top: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
 button:hover { background-color: #0056b3; }
-#quadras-list button { width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px; }
 
 .quadra-label {
-    background-color: transparent; border: none; box-shadow: none;
-    color: #FFFFFF; font-size: 14px; font-weight: bold;
-    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: bold;
+    text-shadow: 
+        -1px -1px 0 #000,  
+         1px -1px 0 #000,
+        -1px  1px 0 #000,
+         1px  1px 0 #000;
 }
 
-.autocomplete-container { position: relative; }
+.autocomplete-container {
+    position: relative;
+}
+
 .autocomplete-items {
-    position: absolute; border: 1px solid #d4d4d4;
-    z-index: 9999;
-    top: 100%; left: 0; right: 0;
-    max-height: 200px; overflow-y: auto; background-color: #fff;
+    position: absolute;
+    border: 1px solid #d4d4d4;
+    border-bottom: none;
+    border-top: none;
+    z-index: 99;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
 }
-.autocomplete-items div { padding: 10px; cursor: pointer; border-bottom: 1px solid #d4d4d4; }
-.autocomplete-items div:hover { background-color: #e9e9e9; }
 
-#bairros-selecionados-container { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; padding: 5px 0; }
-.bairro-tag {
-    background-color: #007bff; color: white; padding: 5px 10px;
-    border-radius: 15px; font-size: 14px; display: flex; align-items: center; gap: 8px;
+.autocomplete-items div {
+    padding: 10px;
+    cursor: pointer;
+    background-color: #fff;
+    border-bottom: 1px solid #d4d4d4;
 }
-.bairro-tag .remove-tag { cursor: pointer; font-weight: bold; color: #e0e0e0; }
-.bairro-tag .remove-tag:hover { color: white; }
+
+.autocomplete-items div:hover {
+    background-color: #e9e9e9;
+}
