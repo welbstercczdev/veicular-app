@@ -4,62 +4,50 @@ body {
     display: flex; 
     height: 100vh; 
     margin: 0; 
+    overflow: hidden; /* Impede a rolagem do corpo principal */
 }
 #map { 
     flex-grow: 1; 
     height: 100%; 
 }
 
-/* --- LÓGICA DE LAYOUT FLEXBOX ROBUSTA --- */
+/* --- LÓGICA DE LAYOUT FLEXBOX FINAL --- */
 #sidebar {
     width: 350px;
-    padding: 15px;
+    height: 100vh; /* Ocupa a altura total da tela */
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
     display: flex;
-    flex-direction: column; /* Organiza os filhos em uma coluna */
-    height: 100vh;
-    box-sizing: border-box;
+    flex-direction: column; /* Organiza os filhos (main-content e footer) em uma coluna */
 }
 
-/* Container do formulário no topo */
-#form-container {
-    overflow-y: auto;
-    flex-shrink: 0;
-}
-
-/* Container do resumo e da lista no meio */
-#selection-summary {
+/* Conteúdo principal que cresce e rola */
+#main-content {
     flex-grow: 1; /* Ocupa todo o espaço vertical disponível */
-    display: flex;
-    flex-direction: column;
-    min-height: 0; /* Correção crucial para o overflow em flexbox */
-    margin-top: 10px;
+    overflow-y: auto; /* A barra de rolagem aparecerá AQUI se o conteúdo for grande */
+    padding: 15px; /* Padding interno */
 }
 
-/* Container da lista de quadras com scroll interno */
-#quadras-container {
-    flex-grow: 1;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    padding: 5px;
-    margin-top: 10px;
-    border-radius: 4px;
-}
-
-/* O botão de salvar na base */
-#save-activity {
-    flex-shrink: 0;
-    margin-top: 15px;
+/* Rodapé fixo com o botão */
+#sidebar-footer {
+    flex-shrink: 0; /* Impede que o rodapé encolha */
+    padding: 15px; /* Espaçamento interno */
+    border-top: 1px solid #eee; /* Linha de separação */
+    background-color: #f8f9fa;
 }
 /* --- FIM DA LÓGICA DE LAYOUT --- */
 
-#quadras-list { list-style: none; padding: 0; margin: 0;}
+#quadras-list { list-style: none; padding: 0; margin: 0; }
 .form-group { margin-bottom: 15px; }
 label { display: block; margin-bottom: 5px; font-weight: bold; }
 input, select { width: 100%; padding: 8px; box-sizing: border-box; }
 button { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
 button:hover { background-color: #0056b3; }
 #quadras-list button { width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px; }
+
+/* O botão de salvar agora não precisa mais de margem superior */
+#save-activity {
+    margin-top: 0;
+}
 
 .quadra-label {
     background-color: transparent; border: none; box-shadow: none;
@@ -70,7 +58,8 @@ button:hover { background-color: #0056b3; }
 .autocomplete-container { position: relative; }
 .autocomplete-items {
     position: absolute; border: 1px solid #d4d4d4;
-    z-index: 9999; top: 100%; left: 0; right: 0;
+    z-index: 9999;
+    top: 100%; left: 0; right: 0;
     max-height: 200px; overflow-y: auto; background-color: #fff;
 }
 .autocomplete-items div { padding: 10px; cursor: pointer; border-bottom: 1px solid #d4d4d4; }
