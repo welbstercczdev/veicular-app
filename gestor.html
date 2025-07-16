@@ -9,7 +9,8 @@
 </head>
 <body>
     <div id="sidebar">
-        <div>
+        <!-- Container para todos os campos do formulário -->
+        <div id="form-container">
             <h3>Nova Atividade</h3>
             <div class="form-group">
                 <label for="atividade-id">ID da Atividade:</label>
@@ -60,21 +61,22 @@
                     <option value="">Selecione uma área...</option>
                 </select>
             </div>
-            
+        </div>
+
+        <!-- Container separado para a lista e totais -->
+        <div id="selection-summary">
             <hr>
             <h4>Quadras Selecionadas: <span id="count">0</span></h4>
             <h4>Área Total: <span id="total-area">0.00</span> m²</h4>
-        </div>
-        
-        <div id="quadras-container">
-            <ul id="quadras-list"></ul>
+            <div id="quadras-container">
+                <ul id="quadras-list"></ul>
+            </div>
         </div>
 
         <button id="save-activity">Salvar Atividade</button>
     </div>
     <div id="map"></div>
 
-    <!-- A biblioteca de cálculo de área foi removida -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="gestor.js"></script>
 </body>
