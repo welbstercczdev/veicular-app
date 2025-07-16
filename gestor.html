@@ -1,4 +1,3 @@
-//?
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -10,8 +9,7 @@
 </head>
 <body>
     <div id="sidebar">
-        <!-- Bloco 1: O formulário fixo no topo -->
-        <div id="form-container">
+        <div>
             <h3>Nova Atividade</h3>
             <div class="form-group">
                 <label for="atividade-id">ID da Atividade:</label>
@@ -62,24 +60,23 @@
                     <option value="">Selecione uma área...</option>
                 </select>
             </div>
-        </div>
-
-        <!-- Bloco 2: O conteúdo que vai crescer e ter scroll -->
-        <div id="selection-summary">
+            
             <hr>
             <h4>Quadras Selecionadas: <span id="count">0</span></h4>
             <h4>Área Total: <span id="total-area">0.00</span> m²</h4>
-            <div id="quadras-container">
-                <ul id="quadras-list"></ul>
-            </div>
+        </div>
+        
+        <div id="quadras-container">
+            <ul id="quadras-list"></ul>
         </div>
 
-        <!-- Bloco 3: O botão fixo no final -->
         <button id="save-activity">Salvar Atividade</button>
     </div>
     <div id="map"></div>
 
+    <!-- Ordem correta dos scripts -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-geometryutil@0.9.1/src/leaflet.geometryutil.js"></script>
     <script src="gestor.js"></script>
 </body>
 </html>
