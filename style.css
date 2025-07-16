@@ -1,8 +1,45 @@
+/* Estilo geral */
 body { font-family: sans-serif; display: flex; height: 100vh; margin: 0; }
 #map { flex-grow: 1; height: 100%; }
-#sidebar { width: 350px; padding: 15px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); overflow-y: auto; display: flex; flex-direction: column; }
-#sidebar h3, #sidebar h4 { margin-top: 0; }
-#quadras-container { flex-grow: 1; overflow-y: auto; border: 1px solid #ccc; padding: 5px; margin-bottom: 10px; }
+
+/* --- LÓGICA DE LAYOUT ATUALIZADA --- */
+#sidebar {
+    width: 350px;
+    padding: 15px;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column; /* Organiza os filhos em uma coluna */
+    height: calc(100vh - 30px); /* Altura total menos o padding */
+}
+
+/* O container do formulário ocupa o espaço que precisar */
+#form-container {
+    flex-shrink: 0; /* Impede que o formulário encolha */
+}
+
+/* O container do resumo ocupa todo o espaço restante */
+#selection-summary {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Correção para o overflow em flexbox */
+}
+
+/* O container da lista de quadras agora tem scroll */
+#quadras-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 5px;
+    margin-top: 10px;
+}
+
+/* O botão de salvar fica sempre no final */
+#save-activity {
+    flex-shrink: 0;
+}
+/* --- FIM DA LÓGICA DE LAYOUT --- */
+
 #quadras-list { list-style: none; padding: 0; margin: 0;}
 .form-group { margin-bottom: 15px; }
 label { display: block; margin-bottom: 5px; font-weight: bold; }
@@ -11,69 +48,25 @@ button { width: 100%; padding: 10px; margin-top: 10px; background-color: #007bff
 button:hover { background-color: #0056b3; }
 
 .quadra-label {
-    background-color: transparent;
-    border: none;
-    box-shadow: none;
-    color: #FFFFFF;
-    font-size: 14px;
-    font-weight: bold;
+    background-color: transparent; border: none; box-shadow: none;
+    color: #FFFFFF; font-size: 14px; font-weight: bold;
     text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
 }
 
-.autocomplete-container {
-    position: relative;
-}
-
+.autocomplete-container { position: relative; }
 .autocomplete-items {
-    position: absolute;
-    border: 1px solid #d4d4d4;
-    border-bottom: none;
-    border-top: none;
-    z-index: 99;
-    top: 100%;
-    left: 0;
-    right: 0;
-    max-height: 200px;
-    overflow-y: auto;
-    background-color: #fff;
+    position: absolute; border: 1px solid #d4d4d4;
+    z-index: 9999;
+    top: 100%; left: 0; right: 0;
+    max-height: 200px; overflow-y: auto; background-color: #fff;
 }
+.autocomplete-items div { padding: 10px; cursor: pointer; border-bottom: 1px solid #d4d4d4; }
+.autocomplete-items div:hover { background-color: #e9e9e9; }
 
-.autocomplete-items div {
-    padding: 10px;
-    cursor: pointer;
-    border-bottom: 1px solid #d4d4d4;
-}
-
-.autocomplete-items div:hover {
-    background-color: #e9e9e9;
-}
-
-/* --- ESTILOS ADICIONADOS PARA AS TAGS DE BAIRRO --- */
-#bairros-selecionados-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-top: 10px;
-    padding: 5px 0;
-}
-
+#bairros-selecionados-container { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; padding: 5px 0; }
 .bairro-tag {
-    background-color: #007bff;
-    color: white;
-    padding: 5px 10px;
-    border-radius: 15px;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    background-color: #007bff; color: white; padding: 5px 10px;
+    border-radius: 15px; font-size: 14px; display: flex; align-items: center; gap: 8px;
 }
-
-.bairro-tag .remove-tag {
-    cursor: pointer;
-    font-weight: bold;
-    color: #e0e0e0;
-}
-
-.bairro-tag .remove-tag:hover {
-    color: white;
-}
+.bairro-tag .remove-tag { cursor: pointer; font-weight: bold; color: #e0e0e0; }
+.bairro-tag .remove-tag:hover { color: white; }
