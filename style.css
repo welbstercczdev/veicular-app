@@ -10,40 +10,57 @@ body {
     height: 100%; 
 }
 
-/* --- LÓGICA DE LAYOUT ATUALIZADA E SIMPLIFICADA --- */
+/* --- LÓGICA DE LAYOUT FLEXBOX ROBUSTA --- */
 #sidebar {
     width: 350px;
     padding: 15px;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-    height: 100vh; /* Ocupa a altura total da tela */
-    overflow-y: auto; /* A barra lateral inteira terá scroll se necessário */
+    display: flex;
+    flex-direction: column; /* Organiza os filhos em uma coluna */
+    height: 100vh;
     box-sizing: border-box;
-    position: relative; /* Contexto para o botão fixo */
 }
 
-/* O botão de salvar fica fixo no final da barra lateral */
+/* Container do formulário no topo */
+#form-container {
+    overflow-y: auto; /* Adiciona scroll se o formulário for muito grande */
+    flex-shrink: 0; /* Impede que o formulário encolha */
+}
+
+/* Container do resumo e da lista no meio */
+#selection-summary {
+    flex-grow: 1; /* Ocupa todo o espaço vertical disponível */
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Correção crucial para o overflow em flexbox */
+    margin-top: 10px;
+}
+
+/* Container da lista de quadras com scroll interno */
+#quadras-container {
+    flex-grow: 1; /* Ocupa o espaço restante dentro do seu container pai */
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 5px;
+    margin-top: 10px;
+    border-radius: 4px;
+}
+
+/* O botão de salvar na base */
 #save-activity {
-    position: sticky; /* Gruda na parte de baixo da área visível da sidebar */
-    bottom: 0; /* Alinha com a base */
-    margin-top: 20px; /* Cria um espaço acima dele */
-    padding: 15px; /* Deixa o botão mais robusto */
-    z-index: 10; /* Garante que fique sobre a lista ao rolar */
+    flex-shrink: 0; /* Impede que o botão encolha */
+    margin-top: 15px; /* Adiciona um espaçamento final */
 }
 /* --- FIM DA LÓGICA DE LAYOUT --- */
 
 
-#quadras-list { 
-    list-style: none; 
-    padding: 0; 
-    margin: 0; 
-    padding-bottom: 70px; /* Espaço extra no final da lista para não ficar atrás do botão */
-}
+#quadras-list { list-style: none; padding: 0; margin: 0;}
 .form-group { margin-bottom: 15px; }
 label { display: block; margin-bottom: 5px; font-weight: bold; }
 input, select { width: 100%; padding: 8px; box-sizing: border-box; }
-/* Estilo para o botão de salvar principal */
-#save-activity { width: 100%; padding: 15px; margin-top: 15px; }
-/* Estilo para os botões menores (como o 'X' de remover) */
+/* Estilos para os botões */
+button { padding: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+button:hover { background-color: #0056b3; }
 #quadras-list button { width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px; }
 
 .quadra-label {
