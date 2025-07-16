@@ -9,69 +9,75 @@
 </head>
 <body>
     <div id="sidebar">
-        <!-- Todos os elementos são filhos diretos da sidebar para um fluxo simples -->
-        <h3>Nova Atividade</h3>
-        <div class="form-group">
-            <label for="atividade-id">ID da Atividade:</label>
-            <input type="text" id="atividade-id" placeholder="Ex: 2023-001">
-        </div>
-        
-        <div class="form-group">
-            <label for="veiculo-select">Veículo:</label>
-            <select id="veiculo-select">
-                <option value="">Selecione um veículo...</option>
-                <option value="MONTANA - QUR4951">MONTANA - QUR4951</option>
-                <option value="OROCH - SYY0I07">OROCH - SYY0I07</option>
-                <option value="OROCH - SYY0H46">OROCH - SYY0H46</option>
-            </select>
+        <!-- Bloco 1: O formulário fixo no topo -->
+        <div id="form-container">
+            <h3>Nova Atividade</h3>
+            <div class="form-group">
+                <label for="atividade-id">ID da Atividade:</label>
+                <input type="text" id="atividade-id" placeholder="Ex: 2023-001">
+            </div>
+            
+            <div class="form-group">
+                <label for="veiculo-select">Veículo:</label>
+                <select id="veiculo-select">
+                    <option value="">Selecione um veículo...</option>
+                    <option value="MONTANA - QUR4951">MONTANA - QUR4951</option>
+                    <option value="OROCH - SYY0I07">OROCH - SYY0I07</option>
+                    <option value="OROCH - SYY0H46">OROCH - SYY0H46</option>
+                </select>
+            </div>
+
+            <div class="form-group autocomplete-container">
+                <label for="motorista-input">Motorista:</label>
+                <input type="text" id="motorista-input" placeholder="Carregando nomes..." autocomplete="off">
+                <div class="autocomplete-items" id="motorista-list"></div>
+            </div>
+
+            <div class="form-group autocomplete-container">
+                <label for="operador-input">Operador:</label>
+                <input type="text" id="operador-input" placeholder="Carregando nomes..." autocomplete="off">
+                <div class="autocomplete-items" id="operador-list"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="produto-select">Produto Químico:</label>
+                <select id="produto-select">
+                    <option value="">Selecione um produto...</option>
+                    <option value="CIELO">CIELO</option>
+                    <option value="VECTOBAC">VECTOBAC</option>
+                </select>
+            </div>
+            
+            <div class="form-group autocomplete-container">
+                <label for="bairro-input">Bairros (adicione um ou mais):</label>
+                <input type="text" id="bairro-input" placeholder="Carregando bairros..." autocomplete="off">
+                <div class="autocomplete-items" id="bairro-list"></div>
+                <div id="bairros-selecionados-container"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="area-selector">Carregar Área para Seleção:</label>
+                <select id="area-selector">
+                    <option value="">Selecione uma área...</option>
+                </select>
+            </div>
         </div>
 
-        <div class="form-group autocomplete-container">
-            <label for="motorista-input">Motorista:</label>
-            <input type="text" id="motorista-input" placeholder="Carregando nomes..." autocomplete="off">
-            <div class="autocomplete-items" id="motorista-list"></div>
+        <!-- Bloco 2: O conteúdo que vai crescer e ter scroll -->
+        <div id="selection-summary">
+            <hr>
+            <h4>Quadras Selecionadas: <span id="count">0</span></h4>
+            <h4>Área Total: <span id="total-area">0.00</span> m²</h4>
+            <div id="quadras-container">
+                <ul id="quadras-list"></ul>
+            </div>
         </div>
 
-        <div class="form-group autocomplete-container">
-            <label for="operador-input">Operador:</label>
-            <input type="text" id="operador-input" placeholder="Carregando nomes..." autocomplete="off">
-            <div class="autocomplete-items" id="operador-list"></div>
-        </div>
-
-        <div class="form-group">
-            <label for="produto-select">Produto Químico:</label>
-            <select id="produto-select">
-                <option value="">Selecione um produto...</option>
-                <option value="CIELO">CIELO</option>
-                <option value="VECTOBAC">VECTOBAC</option>
-            </select>
-        </div>
-        
-        <div class="form-group autocomplete-container">
-            <label for="bairro-input">Bairros (adicione um ou mais):</label>
-            <input type="text" id="bairro-input" placeholder="Carregando bairros..." autocomplete="off">
-            <div class="autocomplete-items" id="bairro-list"></div>
-            <div id="bairros-selecionados-container"></div>
-        </div>
-        
-        <div class="form-group">
-            <label for="area-selector">Carregar Área para Seleção:</label>
-            <select id="area-selector">
-                <option value="">Selecione uma área...</option>
-            </select>
-        </div>
-        
-        <hr>
-        <h4>Quadras Selecionadas: <span id="count">0</span></h4>
-        <h4>Área Total: <span id="total-area">0.00</span> m²</h4>
-        
-        <ul id="quadras-list"></ul>
-
+        <!-- Bloco 3: O botão fixo no final -->
         <button id="save-activity">Salvar Atividade</button>
     </div>
     <div id="map"></div>
 
-    <!-- Scripts carregados no final -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="gestor.js"></script>
 </body>
