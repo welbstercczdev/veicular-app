@@ -1,50 +1,64 @@
 /* Estilo geral */
-body { font-family: sans-serif; display: flex; height: 100vh; margin: 0; }
-#map { flex-grow: 1; height: 100%; }
+body { 
+    font-family: sans-serif; 
+    display: flex; 
+    height: 100vh; 
+    margin: 0; 
+}
+#map { 
+    flex-grow: 1; 
+    height: 100%; 
+}
 
-/* --- LÓGICA DE LAYOUT ATUALIZADA --- */
+/* --- LÓGICA DE LAYOUT ATUALIZADA E ROBUSTA --- */
 #sidebar {
     width: 350px;
     padding: 15px;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
     display: flex;
     flex-direction: column; /* Organiza os filhos em uma coluna */
-    height: calc(100vh - 30px); /* Altura total menos o padding */
+    height: 100vh; /* Ocupa a altura total da tela */
+    box-sizing: border-box; /* Garante que o padding não aumente a altura */
 }
 
-/* O container do formulário ocupa o espaço que precisar */
+/* Container do formulário no topo */
 #form-container {
+    overflow-y: auto; /* Adiciona scroll se o formulário for muito grande */
     flex-shrink: 0; /* Impede que o formulário encolha */
 }
 
-/* O container do resumo ocupa todo o espaço restante */
+/* Container do resumo e da lista no meio */
 #selection-summary {
-    flex-grow: 1;
+    flex-grow: 1; /* Ocupa todo o espaço vertical disponível */
     display: flex;
     flex-direction: column;
-    min-height: 0; /* Correção para o overflow em flexbox */
+    min-height: 0; /* Correção crucial para o overflow em flexbox */
+    margin-top: 15px; /* Adiciona um espaço entre o formulário e a lista */
 }
 
-/* O container da lista de quadras agora tem scroll */
+/* Container da lista de quadras com scroll interno */
 #quadras-container {
-    flex-grow: 1;
+    flex-grow: 1; /* Ocupa o espaço restante dentro do seu container pai */
     overflow-y: auto;
     border: 1px solid #ccc;
     padding: 5px;
     margin-top: 10px;
+    border-radius: 4px;
 }
 
-/* O botão de salvar fica sempre no final */
+/* Botão de salvar na base */
 #save-activity {
-    flex-shrink: 0;
+    flex-shrink: 0; /* Impede que o botão encolha */
+    margin-top: 15px; /* Adiciona um espaçamento final */
 }
 /* --- FIM DA LÓGICA DE LAYOUT --- */
+
 
 #quadras-list { list-style: none; padding: 0; margin: 0;}
 .form-group { margin-bottom: 15px; }
 label { display: block; margin-bottom: 5px; font-weight: bold; }
 input, select { width: 100%; padding: 8px; box-sizing: border-box; }
-button { width: 100%; padding: 10px; margin-top: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+button { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
 button:hover { background-color: #0056b3; }
 
 .quadra-label {
