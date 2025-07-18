@@ -11,6 +11,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 // Variáveis globais
 let quadrasLayer;
+let imoveisLookup = {}; // Armazenará os dados de imoveis_lookup.json
 const selectedQuadras = new Map();
 const selectedBairros = new Set();
 
@@ -43,23 +44,17 @@ function getAreaId(feature) {
     return null;
 }
 
-/**
- * Calcula a área de um polígono usando a fórmula de Shoelace em coordenadas geográficas.
- * @param {Array<L.LatLng>} latlngs - Um array de coordenadas do Leaflet.
- * @returns {number} - A área em metros quadrados.
- */
 function calculatePolygonArea(latlngs) {
     if (!latlngs || latlngs.length < 3) return 0;
     let area = 0.0;
     const R = 6378137; // Raio da Terra em metros
     for (let i = 0; i < latlngs.length; i++) {
-        const p1 = latlngs[i];
-        const p2 = latlngs[(i + 1) % latlngs.length];
+        let p1 = latlngs[i];
+        let p2 = latlngs[(i + 1) % latlngs.length];
         area += (p2.lng * Math.PI / 180 - p1.lng * Math.PI / 180) * (2 + Math.sin(p1.lat * Math.PI / 180) + Math.sin(p2.lat * Math.PI / 180));
     }
     return Math.abs(area * R * R / 2.0);
 }
-
 
 function updateSidebar() {
     quadrasSelecionadasList.innerHTML = '';
@@ -113,7 +108,6 @@ function onQuadraClick(e) {
         let areaInSqMeters = 0;
         try {
             const latlngs = layer.getLatLngs();
-            // Lógica robusta para lidar com Polygon e MultiPolygon
             const coordsToCalc = Array.isArray(latlngs[0][0]) ? latlngs[0][0] : latlngs[0];
             areaInSqMeters = calculatePolygonArea(coordsToCalc);
         } catch (calcError) {
@@ -140,41 +134,30 @@ function onEachFeature(feature, layer) {
 function setupAutocomplete(inputId, listId, sourceArray, onSelectCallback) {
     const input = document.getElementById(inputId);
     const listContainer = document.getElementById(listId);
-
     input.addEventListener("input", function() {
+        closeAllLists(listId);
         const val = this.value;
+        if (!val) { listContainer.style.display = 'none'; return; }
         listContainer.innerHTML = '';
-        if (!val) {
-            listContainer.style.display = 'none';
-            return;
-        }
-        
-        listContainer.style.display = 'block';
-        const suggestions = sourceArray.filter(item => item.toUpperCase().includes(val.toUpperCase()));
-
-        suggestions.forEach(item => {
-            const suggestionDiv = document.createElement("DIV");
-            suggestionDiv.innerHTML = item.replace(new RegExp(val, "gi"), "<strong>$&</strong>");
-            suggestionDiv.addEventListener("click", function() {
-                onSelectCallback(item);
-                closeAllLists();
+        listContainer.style.display = "block";
+        sourceArray
+            .filter(item => item.toUpperCase().includes(val.toUpperCase()))
+            .forEach(item => {
+                const b = document.createElement("DIV");
+                b.innerHTML = item.replace(new RegExp(val, "gi"), "<strong>$&</strong>");
+                b.addEventListener("click", function() {
+                    onSelectCallback(item);
+                    closeAllLists();
+                });
+                listContainer.appendChild(b);
             });
-            listContainer.appendChild(suggestionDiv);
-        });
     });
-
-    function closeAllLists() {
+    function closeAllLists(exceptListId) {
         document.querySelectorAll(".autocomplete-items").forEach(item => {
-            item.innerHTML = '';
-            item.style.display = 'none';
+            if (item.id !== exceptListId) item.style.display = 'none';
         });
     }
-
-    document.addEventListener("click", function (e) {
-        if (!e.target.closest('.autocomplete-container')) {
-            closeAllLists();
-        }
-    });
+    document.addEventListener("click", e => { if (!e.target.closest('.autocomplete-container')) closeAllLists(); });
 }
 
 function renderBairroTags() {
@@ -195,12 +178,18 @@ document.getElementById('bairros-selecionados-container').addEventListener('clic
     }
 });
 
-async function popularDadosIniciais() {
+async function carregarDadosIniciais() {
     try {
-        const [agentesRes, bairrosRes] = await Promise.all([ fetch(AGENTES_API_URL), fetch(BAIRROS_API_URL) ]);
+        const [agentesRes, bairrosRes, imoveisRes] = await Promise.all([
+            fetch(AGENTES_API_URL),
+            fetch(BAIRROS_API_URL),
+            fetch('data/imoveis_lookup.json')
+        ]);
+
         const agentesData = await agentesRes.json();
         const bairrosData = await bairrosRes.json();
-        
+        imoveisLookup = await imoveisRes.json();
+
         if (agentesData.error) throw new Error(agentesData.error);
         if (bairrosData.error || !bairrosData.agentes) throw new Error(`API de Bairros: ${bairrosData.error || 'formato de resposta inválido'}`);
 
@@ -218,7 +207,7 @@ async function popularDadosIniciais() {
         document.getElementById('bairro-input').placeholder = "Digite para buscar...";
 
     } catch(e) { 
-        alert("Erro ao carregar dados iniciais (Agentes ou Bairros). " + e.message); 
+        alert("Erro ao carregar dados iniciais (Agentes, Bairros ou Imóveis). " + e.message); 
     }
 }
 
@@ -246,7 +235,14 @@ document.getElementById('save-activity').addEventListener('click', async () => {
         motorista: document.getElementById('motorista-input').value.trim(),
         operador: document.getElementById('operador-input').value.trim(),
         bairros: Array.from(selectedBairros).join(', '),
-        quadras: Array.from(selectedQuadras.values())
+        quadras: Array.from(selectedQuadras.values()).map(quadra => {
+            const compositeKey = `${quadra.area}-${quadra.id}`;
+            const lookupData = imoveisLookup[compositeKey];
+            return {
+                ...quadra,
+                setor_censitario: lookupData ? lookupData.censitario : 'N/A'
+            };
+        })
     };
 
     if (!payload.id_atividade || !payload.veiculo || !payload.produto || !payload.bairros || !payload.motorista || !payload.operador || payload.quadras.length === 0) {
@@ -284,5 +280,5 @@ function popularSeletorDeAreas() {
 
 document.addEventListener('DOMContentLoaded', () => {
     popularSeletorDeAreas();
-    popularDadosIniciais();
+    carregarDadosIniciais();
 });
