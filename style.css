@@ -11,43 +11,39 @@ body {
     height: 100%; 
 }
 
-/* --- LÓGICA DE LAYOUT FLEXBOX FINAL --- */
+/* --- LÓGICA DE LAYOUT SIMPLIFICADA E ROBUSTA --- */
 #sidebar {
     width: 350px;
-    height: 100vh; /* Ocupa a altura total da tela */
+    height: 100vh;
+    padding: 15px;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-    display: flex;
-    flex-direction: column; /* Organiza os filhos (main-content e footer) em uma coluna */
+    overflow-y: auto; /* A barra lateral inteira terá scroll se o conteúdo for muito grande */
+    box-sizing: border-box;
 }
 
-/* Conteúdo principal que cresce e rola */
-#main-content {
-    flex-grow: 1; /* Ocupa todo o espaço vertical disponível */
-    overflow-y: auto; /* A barra de rolagem aparecerá AQUI se o conteúdo for grande */
-    padding: 15px; /* Padding interno */
+/* Define uma altura máxima para a lista de quadras */
+#quadras-container {
+    max-height: 250px; /* Ajuste este valor conforme sua preferência */
+    overflow-y: auto; /* Adiciona scroll APENAS na lista de quadras */
+    border: 1px solid #ccc;
+    padding: 5px;
+    margin-top: 10px;
+    border-radius: 4px;
+    min-height: 100px; /* Garante uma altura mínima mesmo vazia */
 }
 
-/* Rodapé fixo com o botão */
-#sidebar-footer {
-    flex-shrink: 0; /* Impede que o rodapé encolha */
-    padding: 15px; /* Espaçamento interno */
-    border-top: 1px solid #eee; /* Linha de separação */
-    background-color: #f8f9fa;
+#save-activity {
+    margin-top: 20px; /* Espaço entre a lista e o botão */
 }
 /* --- FIM DA LÓGICA DE LAYOUT --- */
 
-#quadras-list { list-style: none; padding: 0; margin: 0; }
+#quadras-list { list-style: none; padding: 0; margin: 0;}
 .form-group { margin-bottom: 15px; }
 label { display: block; margin-bottom: 5px; font-weight: bold; }
 input, select { width: 100%; padding: 8px; box-sizing: border-box; }
 button { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
 button:hover { background-color: #0056b3; }
 #quadras-list button { width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px; }
-
-/* O botão de salvar agora não precisa mais de margem superior */
-#save-activity {
-    margin-top: 0;
-}
 
 .quadra-label {
     background-color: transparent; border: none; box-shadow: none;
@@ -58,8 +54,7 @@ button:hover { background-color: #0056b3; }
 .autocomplete-container { position: relative; }
 .autocomplete-items {
     position: absolute; border: 1px solid #d4d4d4;
-    z-index: 9999;
-    top: 100%; left: 0; right: 0;
+    z-index: 9999; top: 100%; left: 0; right: 0;
     max-height: 200px; overflow-y: auto; background-color: #fff;
 }
 .autocomplete-items div { padding: 10px; cursor: pointer; border-bottom: 1px solid #d4d4d4; }
