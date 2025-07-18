@@ -67,3 +67,53 @@ button:hover { background-color: #0056b3; }
 }
 .bairro-tag .remove-tag { cursor: pointer; font-weight: bold; color: #e0e0e0; }
 .bairro-tag .remove-tag:hover { color: white; }
+
+/* ... seus estilos existentes ... */
+
+/* --- ESTILOS PARA A JANELA MODAL --- */
+.modal-overlay {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 10000;
+}
+.modal {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+.modal-close {
+    position: absolute; top: 10px; right: 10px;
+    background: none; border: none; font-size: 24px;
+    cursor: pointer; padding: 0; line-height: 1;
+    color: #888;
+}
+.modal-close:hover { color: #000; }
+.table-container { overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background-color: #f2f2f2; }
+.progress-bar {
+    width: 100%; background-color: #e0e0e0;
+    border-radius: 4px; overflow: hidden;
+}
+.progress-bar-fill {
+    height: 20px; background-color: #4caf50;
+    text-align: center; color: white; line-height: 20px;
+    font-size: 12px;
+}
+.action-buttons button {
+    width: auto; padding: 5px 10px;
+    margin-right: 5px; font-size: 12px;
+}
+.btn-edit { background-color: #ffc107; color: black; }
+.btn-delete { background-color: #dc3545; }
+.secondary-btn { background-color: #6c757d; }
+.secondary-btn:hover { background-color: #5a6268; }
