@@ -1,13 +1,9 @@
-// Registra o Service Worker para habilitar as funcionalidades offline (PWA)
+// Registra o Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./service-worker.js')
-      .then(registration => {
-        console.log('Service Worker registrado com sucesso:', registration);
-      })
-      .catch(error => {
-        console.log('Falha ao registrar Service Worker:', error);
-      });
+      .then(reg => console.log('Service Worker registrado:', reg))
+      .catch(err => console.log('Falha ao registrar SW:', err));
   });
 }
 
@@ -30,8 +26,8 @@ function initDB() {
 }
 
 // --- LÓGICA PRINCIPAL DA APLICAÇÃO ---
-const map = L.map('map', { zoomControl: false }).setView([-23.1791, -45.8872], 13); // Desativa o controle de zoom padrão
-L.control.zoom({ position: 'topright' }).addTo(map); // Adiciona o controle de zoom na direita
+const map = L.map('map', { zoomControl: false }).setView([-23.1791, -45.8872], 13);
+L.control.zoom({ position: 'topright' }).addTo(map);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
 }).addTo(map);
@@ -52,15 +48,30 @@ function getStyle(feature) {
     return status === 'Trabalhada' ? { color: borderColor, weight: 2, opacity: 1, fillColor: "#28a745", fillOpacity: 0.6 } : { color: borderColor, weight: 2, opacity: 1, fillColor: "#dc3545", fillOpacity: 0.6 };
 }
 
+function updateProgressCounter() {
+    const progressContainer = document.getElementById('progress-container');
+    if (!currentActivityId) {
+        progressContainer.style.display = 'none';
+        return;
+    }
+    const quadras = Object.values(activityStatus);
+    const totalQuadras = quadras.length;
+    const quadrasTrabalhadas = quadras.filter(status => status === 'Trabalhada').length;
+    document.getElementById('progress-counter').textContent = `${quadrasTrabalhadas} / ${totalQuadras}`;
+    progressContainer.style.display = 'flex';
+}
+
 window.atualizarStatusQuadra = async function(id, novoStatus) {
-    const statusAnterior = activityStatus[id]; activityStatus[id] = novoStatus;
+    const statusAnterior = activityStatus[id];
+    activityStatus[id] = novoStatus;
     if (quadrasLayer) quadrasLayer.setStyle(getStyle);
+    updateProgressCounter(); // Atualiza o contador a cada clique
     if (!db) { alert("Erro: Banco de dados local não está disponível."); activityStatus[id] = statusAnterior; if (quadrasLayer) quadrasLayer.setStyle(getStyle); return; }
     const transaction = db.transaction(['sync_queue'], 'readwrite');
     const store = transaction.objectStore('sync_queue');
     store.add({ id_atividade: currentActivityId, id_quadra: id, status: novoStatus, timestamp: new Date().getTime() });
     transaction.oncomplete = () => { console.log(`Quadra ${id} salva localmente.`); syncOfflineUpdates(); };
-    transaction.onerror = () => { alert("Erro ao salvar localmente."); activityStatus[id] = statusAnterior; if (quadrasLayer) quadrasLayer.setStyle(getStyle); };
+    transaction.onerror = () => { alert("Erro ao salvar localmente."); activityStatus[id] = statusAnterior; if (quadrasLayer) quadrasLayer.setStyle(getStyle); updateProgressCounter(); };
 }
 
 function onEachFeature(feature, layer) {
@@ -94,7 +105,7 @@ function syncOfflineUpdates() {
             } catch (error) { console.error("Erro durante a sincronização.", error); } 
             finally { updateStatusIndicator(); }
         };
-    }, 500); // Debounce de 500ms para evitar múltiplas sincronizações rápidas
+    }, 500);
 }
 
 let statusIndicatorTimeout;
@@ -113,21 +124,26 @@ function updateStatusIndicator(syncing = false) {
         indicator.className = 'visible offline';
     }
     if (navigator.onLine && !syncing) {
-        statusIndicatorTimeout = setTimeout(() => {
-            indicator.classList.remove('visible');
-        }, 3000);
+        statusIndicatorTimeout = setTimeout(() => { indicator.classList.remove('visible'); }, 3000);
     }
 }
 
 async function carregarAtividade() {
-    currentActivityId = document.getElementById('atividade-select').value; if (quadrasLayer) map.removeLayer(quadrasLayer); if (!currentActivityId) return;
+    currentActivityId = document.getElementById('atividade-select').value;
+    if (quadrasLayer) map.removeLayer(quadrasLayer);
+    if (!currentActivityId) {
+        document.getElementById('progress-container').style.display = 'none';
+        return;
+    }
     const loadingPopup = L.popup({ closeButton: false, autoClose: false }).setLatLng(map.getCenter()).setContent(`Carregando...`).openOn(map);
     try {
         const url = new URL(SCRIPT_URL); url.searchParams.append('action', 'getActivity'); url.searchParams.append('id_atividade', currentActivityId);
         const response = await fetch(url); if (!response.ok) throw new Error(`Erro de rede: ${response.statusText}`);
         const result = await response.json(); if (!result.success) throw new Error(result.message);
-        activityStatus = result.data.quadras; const areasParaCarregar = result.data.areas; const quadrasDaAtividade = Object.keys(activityStatus);
-        if (areasParaCarregar.length === 0) { alert("Nenhuma quadra para esta atividade."); map.closePopup(loadingPopup); return; }
+        activityStatus = result.data.quadras;
+        const areasParaCarregar = result.data.areas;
+        const quadrasDaAtividade = Object.keys(activityStatus);
+        if (areasParaCarregar.length === 0) { alert("Nenhuma quadra para esta atividade."); map.closePopup(loadingPopup); updateProgressCounter(); return; }
         const allFeatures = [];
         for (const areaId of areasParaCarregar) {
             try {
@@ -137,11 +153,17 @@ async function carregarAtividade() {
                 allFeatures.push(...featuresFiltradas);
             } catch(e) { console.error(`Erro ao processar Área ${areaId}:`, e); }
         }
-        map.closePopup(loadingPopup); if(allFeatures.length === 0) { alert("Quadras não encontradas nos arquivos de mapa."); return; }
+        map.closePopup(loadingPopup);
+        if(allFeatures.length === 0) { alert("Quadras não encontradas nos arquivos de mapa."); updateProgressCounter(); return; }
         const featureCollection = { type: "FeatureCollection", features: allFeatures };
         quadrasLayer = L.geoJSON(featureCollection, { style: getStyle, onEachFeature: onEachFeature }).addTo(map);
         if (quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
-    } catch(error) { map.closePopup(loadingPopup); alert(`Falha ao carregar atividade: ${error.message}`); }
+        updateProgressCounter();
+    } catch(error) {
+        map.closePopup(loadingPopup);
+        alert(`Falha ao carregar atividade: ${error.message}`);
+        document.getElementById('progress-container').style.display = 'none';
+    }
 }
 
 async function popularAtividadesPendentes() {
@@ -155,7 +177,10 @@ async function popularAtividadesPendentes() {
             const option = document.createElement('option'); option.textContent = "Nenhuma atividade pendente"; option.disabled = true; seletor.appendChild(option);
         } else {
             result.data.forEach(activity => {
-                const option = document.createElement('option'); option.value = activity.id; option.textContent = `Atividade ${activity.id} - ${activity.veiculo}`; option.title = `Produto: ${activity.produto} | Dupla: ${activity.motorista} e ${activity.operador}`; seletor.appendChild(option);
+                const option = document.createElement('option'); option.value = activity.id;
+                option.textContent = `Atividade ${activity.id} - ${activity.veiculo}`;
+                option.title = `Produto: ${activity.produto} | Dupla: ${activity.motorista} e ${activity.operador}`;
+                seletor.appendChild(option);
             });
         }
     } catch(error) { seletor.innerHTML = '<option value="">Erro ao carregar</option>'; alert("Não foi possível buscar a lista de atividades: " + error.message); }
@@ -174,7 +199,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         function handleLocationUpdate(position) {
             const { latitude, longitude, heading } = position.coords;
             const userLatLng = L.latLng(latitude, longitude);
-            
             const iconHtml = `<svg style="transform: rotate(${heading || 0}deg);" viewBox="0 0 24 24" width="24px" height="24px" fill="#007bff" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>`;
             const cssIcon = L.divIcon({ html: iconHtml, className: 'user-location-icon', iconSize: [24, 24], iconAnchor: [12, 12] });
 
