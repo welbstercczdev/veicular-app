@@ -1,44 +1,36 @@
-// ATENÇÃO: Substitua 'veicular-app' pelo nome EXATO do seu repositório no GitHub.
-const REPO_NAME = 'veicular-app'; 
-const CACHE_NAME = 'mapa-trabalho-v2'; // Mudei a versão para forçar a atualização do cache
+// service-worker.js
 
-const urlsToCache = [
-    `/${REPO_NAME}/`,
-    `/${REPO_NAME}/index.html`,
-    `/${REPO_NAME}/style.css`,
-    `/${REPO_NAME}/app.js`,
-    // Os caminhos para os plugins e dados externos continuam os mesmos
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-    'https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css',
-    'https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css',
-    'https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js',
-    'https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js'
-    // IMPORTANTE: Não vamos cachear os arquivos de dados (geojson) por enquanto
-    // para simplificar. O usuário precisará de conexão para carregar uma nova área.
+const CACHE_NAME = 'mapa-trabalho-app-v7'; // Incremente a versão
+const MAP_CACHE_NAME = 'mapa-trabalho-tiles-v7';
+
+const CORE_ASSETS = [
+    './',
+    './index.html',
+    './gestor.html',
+    './operador.html',
+    './style.css',
+    './gestor.js',
+    './operador.js',
+    'https://unpkg.com/leaflet@1.7.1/dist/leaflet.css',
+    'https://unpkg.com/leaflet@1.7.1/dist/leaflet.js'
 ];
 
 self.addEventListener('install', event => {
+    console.log('SW: Instalando...');
+    self.skipWaiting();
     event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => {
-                console.log('Cache aberto, adicionando URLs principais.');
-                return cache.addAll(urlsToCache);
-            })
-            .catch(error => {
-                console.error('Falha ao adicionar arquivos ao cache:', error);
-            })
+        caches.open(CACHE_NAME).then(cache => cache.addAll(CORE_ASSETS))
     );
 });
 
-// Limpa caches antigos
 self.addEventListener('activate', event => {
-    const cacheWhitelist = [CACHE_NAME];
+    console.log('SW: Ativando e limpando caches antigos...');
+    event.waitUntil(clients.claim());
     event.waitUntil(
         caches.keys().then(cacheNames => {
             return Promise.all(
                 cacheNames.map(cacheName => {
-                    if (cacheWhitelist.indexOf(cacheName) === -1) {
+                    if (cacheName !== CACHE_NAME && cacheName !== MAP_CACHE_NAME) {
                         return caches.delete(cacheName);
                     }
                 })
@@ -49,11 +41,43 @@ self.addEventListener('activate', event => {
 
 
 self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                // Se encontrar no cache, retorna. Senão, busca na rede.
-                return response || fetch(event.request);
+    const requestUrl = new URL(event.request.url);
+
+    // --- INÍCIO DA CORREÇÃO ---
+    // Se a requisição for para a nossa API do Google, NÃO FAÇA NADA.
+    // Deixe o navegador lidar com ela normalmente.
+    if (requestUrl.hostname.includes('script.google.com')) {
+        return; // Isso efetivamente ignora a requisição
+    }
+    // --- FIM DA CORREÇÃO ---
+
+
+    // Estratégia para os tiles do mapa
+    if (requestUrl.hostname.includes('tile.openstreetmap.org')) {
+        event.respondWith(
+            caches.match(event.request).then(cachedResponse => {
+                // Se estiver no cache, retorna.
+                if (cachedResponse) {
+                    return cachedResponse;
+                }
+                // Senão, busca na rede, salva no cache e retorna.
+                return fetch(event.request).then(networkResponse => {
+                    return caches.open(MAP_CACHE_NAME).then(cache => {
+                        cache.put(event.request, networkResponse.clone());
+                        return networkResponse;
+                    });
+                }).catch(error => {
+                    // Falha graciosamente se estiver offline
+                });
             })
+        );
+        return;
+    }
+
+    // Estratégia para os assets principais da aplicação
+    event.respondWith(
+        caches.match(event.request).then(cachedResponse => {
+            return cachedResponse || fetch(event.request);
+        })
     );
 });

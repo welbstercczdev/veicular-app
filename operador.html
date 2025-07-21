@@ -2,48 +2,165 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Operador - Mapa de Trabalho</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
     
     <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        #map { height: 100vh; width: 100vw; }
+        /* --- GERAL E RESET --- */
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent; /* Remove o brilho azul no clique em mobile */
+        }
+        #map { 
+            height: 100vh; 
+            width: 100vw; 
+            background-color: #f0f2f5; /* Um cinza claro para o fundo do mapa */
+        }
+        
+        /* --- PAINEL DE CONTROLE SUPERIOR --- */
         #controls {
-            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            z-index: 1000; background: white; padding: 10px 15px; border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 10px;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 1001;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        #controls label { font-weight: bold; }
-        #controls select { padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
-
-        /* --- ESTILO ADICIONADO --- */
-        .quadra-label {
-            background-color: transparent;
-            border: none;
-            box-shadow: none;
-            color: #FFFFFF;
-            font-size: 14px;
+        #controls label {
             font-weight: bold;
-            /* Contorno preto para o texto branco, garantindo legibilidade */
-            text-shadow: 
-                -1px -1px 0 #000,  
-                 1px -1px 0 #000,
-                -1px  1px 0 #000,
-                 1px  1px 0 #000;
+            color: #555;
+            white-space: nowrap; /* Impede que o texto quebre */
         }
-        /* --- FIM DO ESTILO ADICIONADO --- */
+        #controls select {
+            flex-grow: 1; /* Faz o select ocupar o espaço restante */
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            background-color: #f9f9f9;
+        }
+
+        /* --- PAINEL DE AÇÕES FLUTUANTE (DIREITA) --- */
+        #actions-panel {
+            position: fixed;
+            top: 70px; /* Abaixo do painel de controle */
+            right: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Estilo base para os botões de ação */
+        .action-btn {
+            width: 44px;
+            height: 44px;
+            background-color: white;
+            color: #333;
+            border-radius: 50%;
+            border: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .action-btn:hover {
+            background-color: #f4f4f4;
+        }
+        .action-btn.tracking {
+            background-color: #007bff;
+            color: white;
+        }
+        .action-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        /* --- INDICADOR DE STATUS (ESQUERDA) --- */
+        #status-indicator {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #28a745;
+            color: white;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            transition: all 0.3s ease-in-out;
+            opacity: 0; /* Começa invisível */
+            transform: translate(-50%, 20px); /* Começa um pouco para baixo */
+        }
+        #status-indicator.visible {
+            opacity: 1;
+            transform: translateX(-50%);
+        }
+        #status-indicator.offline { background-color: #6c757d; } /* Cinza para offline */
+        #status-indicator.syncing { background-color: #ffc107; color: black; }
+
+
+        /* --- OUTROS ESTILOS --- */
+        .quadra-label {
+            background-color: transparent; border: none; box-shadow: none;
+            color: #FFFFFF; font-size: 14px; font-weight: bold;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+        .css-icon { background: transparent; border: none; }
+        .user-location-icon svg {
+            width: 24px; height: 24px;
+            fill: #007bff;
+            filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.5));
+            transition: transform 0.5s ease-out;
+        }
     </style>
 </head>
 <body>
+    <!-- Container do mapa -->
+    <div id="map"></div>
+
+    <!-- Painel de Controle Superior -->
     <div id="controls">
-        <label for="atividade-select">Escolha a Atividade:</label>
+        <label for="atividade-select">Atividade:</label>
         <select id="atividade-select">
-            <option value="">Carregando atividades...</option>
+            <option value="">Carregando...</option>
         </select>
     </div>
-    <div id="map"></div>
+
+    <!-- Painel de Ações Flutuante -->
+    <div id="actions-panel">
+        <button id="track-btn" class="action-btn" title="Iniciar Rastreamento">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Indicador de Status Centralizado -->
+    <div id="status-indicator">Conectado</div>
+    
+    <!-- Molde SVG escondido (sem mudança) -->
+    <div style="display: none;">
+        <svg id="user-marker-svg" viewBox="0 0 24 24" fill="#007bff" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+        </svg>
+    </div>
+
+    <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="operador.js"></script>
 </body>
