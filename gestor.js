@@ -3,19 +3,14 @@ const AGENTES_API_URL = "https://script.google.com/macros/s/AKfycbxg6XocN88LKvq1
 const BAIRROS_API_URL = "https://script.google.com/macros/s/AKfycbw7VInWajEJflcf43PyWeiCh2IfRxVOlZjw3uiHgbKqO_12Y9ARUDnGxio6abnxxpdy/exec";
 const TOTAL_AREAS = 109;
 
-// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Variáveis globais
 let quadrasLayer;
 let imoveisLookup = {};
 const selectedQuadras = new Map();
 const selectedBairros = new Set();
 
-// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
@@ -24,7 +19,112 @@ const closeModalBtn = manageModal.querySelector('.modal-close');
 const openModalBtn = document.getElementById('manage-activities-btn');
 const activitiesTableBody = document.getElementById('activities-table-body');
 
-// --- FUNÇÕES DE LÓGICA E ESTILO ---
+function renderActivitiesTable(activities) {
+    activitiesTableBody.innerHTML = '';
+    if (!activities || activities.length === 0) {
+        activitiesTableBody.innerHTML = '<tr><td colspan="5">Nenhuma atividade encontrada.</td></tr>';
+        return;
+    }
+    activities.forEach(act => {
+        const progresso = act.totalQuadras > 0 ? (act.quadrasTrabalhadas / act.totalQuadras) * 100 : 0;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${act.id}</td>
+            <td>${act.data}</td>
+            <td>${act.veiculo}</td>
+            <td>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: ${progresso.toFixed(2)}%;">${progresso.toFixed(0)}%</div>
+                </div>
+                <small>${act.quadrasTrabalhadas} de ${act.totalQuadras} quadras</small>
+            </td>
+            <td class="action-buttons">
+                <button class="btn-edit" data-id="${act.id}">Editar</button>
+                <button class="btn-delete" data-id="${act.id}">Excluir</button>
+            </td>
+        `;
+        activitiesTableBody.appendChild(row);
+    });
+}
+
+async function openManageModal() {
+    manageModal.style.display = 'flex';
+    activitiesTableBody.innerHTML = '<tr><td colspan="5">Carregando...</td></tr>';
+    try {
+        const url = new URL(SCRIPT_URL);
+        url.searchParams.append('action', 'getActivitiesList');
+        const response = await fetch(url);
+        const result = await response.json();
+        if (result.success) {
+            renderActivitiesTable(result.data);
+        } else {
+            throw new Error(result.message);
+        }
+    } catch(e) {
+        activitiesTableBody.innerHTML = `<tr><td colspan="5">Erro ao carregar: ${e.message}</td></tr>`;
+    }
+}
+
+function closeModal() {
+    manageModal.style.display = 'none';
+}
+
+activitiesTableBody.addEventListener('click', async (e) => {
+    const target = e.target;
+    const activityId = target.dataset.id;
+    if (!activityId) return;
+
+    if (target.classList.contains('btn-delete')) {
+        if (confirm(`Tem certeza que deseja excluir a atividade ${activityId}?`)) {
+            try {
+                const payload = { action: 'deleteActivity', id_atividade: activityId };
+                await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+                alert(`Solicitação para excluir a atividade ${activityId} foi enviada.`);
+                openManageModal();
+            } catch (err) {
+                alert("Erro de rede ao tentar excluir.");
+            }
+        }
+    }
+
+    if (target.classList.contains('btn-edit')) {
+        try {
+            const url = new URL(SCRIPT_URL);
+            url.searchParams.append('action', 'getActivityDetails');
+            url.searchParams.append('id_atividade', activityId);
+            const response = await fetch(url);
+            const result = await response.json();
+            if (!result.success) throw new Error(result.message);
+            const activity = result.data;
+            document.getElementById('atividade-id').value = activity.id;
+            document.getElementById('ciclo-select').value = activity.ciclo;
+            document.getElementById('veiculo-select').value = activity.veiculo;
+            document.getElementById('produto-select').value = activity.produto;
+            document.getElementById('motorista-input').value = activity.motorista;
+            document.getElementById('operador-input').value = activity.operador;
+            selectedBairros.clear();
+            if (activity.bairros) {
+                activity.bairros.split(',').forEach(b => selectedBairros.add(b.trim()));
+            }
+            renderBairroTags();
+            selectedQuadras.clear();
+            activity.quadras.forEach(q => {
+                const compositeKey = `${q.area}-${q.id}`;
+                const lookupData = imoveisLookup[compositeKey] || { total_imoveis: 0, censitario: 'N/A' };
+                selectedQuadras.set(compositeKey, { id: q.id, area: q.area, sqMeters: 0, totalImoveis: lookupData.total_imoveis, setor_censitario: lookupData.censitario });
+            });
+            if (activity.quadras.length > 0) {
+                areaSelector.value = activity.quadras[0].area;
+                areaSelector.dispatchEvent(new Event('change'));
+            }
+            updateSidebar();
+            closeModal();
+            alert(`Atividade ${activityId} carregada para edição.`);
+        } catch (err) {
+            alert("Erro ao carregar detalhes: " + err.message);
+        }
+    }
+});
 
 function getColorForArea(areaId) {
     if (!areaId) return '#777';
@@ -34,16 +134,14 @@ function getColorForArea(areaId) {
 
 function getQuadraId(feature) {
     if (feature.properties && feature.properties.title) {
-        try { return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10); } 
-        catch (e) { return null; }
+        try { return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10); } catch (e) { return null; }
     }
     return null;
 }
 
 function getAreaId(feature) {
     if(feature.properties && feature.properties.description){
-        try { return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10); } 
-        catch(e) { return null; }
+        try { return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10); } catch(e) { return null; }
     }
     return null;
 }
@@ -71,8 +169,7 @@ function updateSidebar() {
         totalImoveis += quadra.totalImoveis;
         const li = document.createElement('li');
         li.style = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;';
-        li.innerHTML = `<span>Área ${quadra.area} - Q ${quadra.id} (${quadra.totalImoveis} imóveis)</span>
-                        <button class="remove-quadra-btn" data-key="${quadra.area}-${quadra.id}" style="width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px;">X</button>`;
+        li.innerHTML = `<span>Área ${quadra.area} - Q ${quadra.id} (${quadra.totalImoveis} imóveis)</span><button class="remove-quadra-btn" data-key="${quadra.area}-${quadra.id}" style="width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px;">X</button>`;
         quadrasSelecionadasList.appendChild(li);
     });
     
@@ -80,6 +177,15 @@ function updateSidebar() {
     document.getElementById('total-area').textContent = totalArea.toFixed(2);
     document.getElementById('total-imoveis').textContent = totalImoveis;
 }
+
+document.getElementById('quadras-list').addEventListener('click', function(e) {
+    if (e.target && e.target.classList.contains('remove-quadra-btn')) {
+        const key = e.target.dataset.key;
+        selectedQuadras.delete(key);
+        if (quadrasLayer) quadrasLayer.setStyle(getStyleForFeature);
+        updateSidebar();
+    }
+});
 
 function getStyleForFeature(feature) {
     const quadraId = getQuadraId(feature);
@@ -159,6 +265,13 @@ function renderBairroTags() {
     });
 }
 
+document.getElementById('bairros-selecionados-container').addEventListener('click', function(e) {
+    if (e.target && e.target.classList.contains('remove-tag')) {
+        selectedBairros.delete(e.target.dataset.bairro);
+        renderBairroTags();
+    }
+});
+
 async function popularDadosIniciais() {
     try {
         const [agentesRes, bairrosRes, imoveisRes] = await Promise.all([ fetch(AGENTES_API_URL), fetch(BAIRROS_API_URL), fetch('data/imoveis_lookup.json') ]);
@@ -180,68 +293,6 @@ async function popularDadosIniciais() {
     } catch(e) { alert("Erro ao carregar dados iniciais: " + e.message); }
 }
 
-function popularSeletorDeAreas() {
-    for (let i = 1; i <= TOTAL_AREAS; i++) {
-        const option = document.createElement('option');
-        option.value = i;
-        option.textContent = `Área ${i}`;
-        areaSelector.appendChild(option);
-    }
-}
-
-// --- FUNÇÕES DA JANELA MODAL ---
-function renderActivitiesTable(activities) {
-    activitiesTableBody.innerHTML = '';
-    if (!activities || activities.length === 0) {
-        activitiesTableBody.innerHTML = '<tr><td colspan="5">Nenhuma atividade encontrada.</td></tr>';
-        return;
-    }
-    activities.forEach(act => {
-        const progresso = act.totalQuadras > 0 ? (act.quadrasTrabalhadas / act.totalQuadras) * 100 : 0;
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${act.id}</td>
-            <td>${act.data}</td>
-            <td>${act.veiculo}</td>
-            <td>
-                <div class="progress-bar">
-                    <div class="progress-bar-fill" style="width: ${progresso.toFixed(2)}%;">${progresso.toFixed(0)}%</div>
-                </div>
-                <small>${act.quadrasTrabalhadas} de ${act.totalQuadras} quadras</small>
-            </td>
-            <td class="action-buttons">
-                <button class="btn-edit" data-id="${act.id}">Editar</button>
-                <button class="btn-delete" data-id="${act.id}">Excluir</button>
-            </td>
-        `;
-        activitiesTableBody.appendChild(row);
-    });
-}
-
-async function openManageModal() {
-    manageModal.style.display = 'flex';
-    activitiesTableBody.innerHTML = '<tr><td colspan="5">Carregando...</td></tr>';
-    try {
-        const url = new URL(SCRIPT_URL);
-        url.searchParams.append('action', 'getActivitiesList');
-        const response = await fetch(url);
-        const result = await response.json();
-        if (result.success) {
-            renderActivitiesTable(result.data);
-        } else {
-            throw new Error(result.message);
-        }
-    } catch(e) {
-        activitiesTableBody.innerHTML = `<tr><td colspan="5">Erro ao carregar: ${e.message}</td></tr>`;
-    }
-}
-
-function closeModal() {
-    manageModal.style.display = 'none';
-}
-
-// --- EVENT LISTENERS ---
-
 areaSelector.addEventListener('change', async (e) => {
     const areaId = e.target.value;
     if (!areaId) return;
@@ -261,6 +312,7 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     const payload = {
         action: 'createActivity',
         id_atividade: document.getElementById('atividade-id').value.trim(),
+        ciclo: document.getElementById('ciclo-select').value,
         veiculo: document.getElementById('veiculo-select').value,
         produto: document.getElementById('produto-select').value,
         motorista: document.getElementById('motorista-input').value.trim(),
@@ -268,13 +320,14 @@ document.getElementById('save-activity').addEventListener('click', async () => {
         bairros: Array.from(selectedBairros).join(', '),
         quadras: Array.from(selectedQuadras.values())
     };
-    if (!payload.id_atividade || !payload.veiculo || !payload.produto || !payload.bairros || !payload.motorista || !payload.operador || payload.quadras.length === 0) {
-        alert("Preencha todos os campos, incluindo ao menos um bairro e uma quadra."); return;
+    if (!payload.id_atividade || !payload.ciclo || !payload.veiculo || !payload.produto || !payload.bairros || !payload.motorista || !payload.operador || payload.quadras.length === 0) {
+        alert("Preencha todos os campos, incluindo ciclo, bairro e quadras."); return;
     }
     try {
         await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
         alert("Atividade enviada para salvamento! Verifique a planilha para confirmar.");
         document.getElementById('atividade-id').value = '';
+        document.getElementById('ciclo-select').value = '';
         document.getElementById('veiculo-select').value = '';
         document.getElementById('produto-select').value = '';
         document.getElementById('motorista-input').value = '';
@@ -290,65 +343,18 @@ document.getElementById('save-activity').addEventListener('click', async () => {
     }
 });
 
-activitiesTableBody.addEventListener('click', async (e) => {
-    const target = e.target;
-    const activityId = target.dataset.id;
-    if (!activityId) return;
-    if (target.classList.contains('btn-delete')) {
-        if (confirm(`Tem certeza que deseja excluir a atividade ${activityId}?`)) {
-            try {
-                const payload = { action: 'deleteActivity', id_atividade: activityId };
-                await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-                alert(`Solicitação para excluir a atividade ${activityId} foi enviada.`);
-                openManageModal();
-            } catch (err) {
-                alert("Erro de rede ao tentar excluir.");
-            }
-        }
+function popularSeletorDeAreas() {
+    for (let i = 1; i <= TOTAL_AREAS; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = `Área ${i}`;
+        areaSelector.appendChild(option);
     }
-    if (target.classList.contains('btn-edit')) {
-        try {
-            const url = new URL(SCRIPT_URL);
-            url.searchParams.append('action', 'getActivityDetails');
-            url.searchParams.append('id_atividade', activityId);
-            const response = await fetch(url);
-            const result = await response.json();
-            if (!result.success) throw new Error(result.message);
-            const activity = result.data;
-            document.getElementById('atividade-id').value = activity.id;
-            document.getElementById('veiculo-select').value = activity.veiculo;
-            document.getElementById('produto-select').value = activity.produto;
-            document.getElementById('motorista-input').value = activity.motorista;
-            document.getElementById('operador-input').value = activity.operador;
-            selectedBairros.clear();
-            if (activity.bairros) {
-                activity.bairros.split(',').forEach(b => selectedBairros.add(b.trim()));
-            }
-            renderBairroTags();
-            selectedQuadras.clear();
-            activity.quadras.forEach(q => {
-                const compositeKey = `${q.area}-${q.id}`;
-                const lookupData = imoveisLookup[compositeKey] || { total_imoveis: 0 };
-                selectedQuadras.set(compositeKey, { id: q.id, area: q.area, sqMeters: 0, totalImoveis: lookupData.total_imoveis });
-            });
-            if (activity.quadras.length > 0) {
-                areaSelector.value = activity.quadras[0].area;
-                areaSelector.dispatchEvent(new Event('change'));
-            }
-            updateSidebar();
-            closeModal();
-            alert(`Atividade ${activityId} carregada para edição.`);
-        } catch (err) {
-            alert("Erro ao carregar detalhes: " + err.message);
-        }
-    }
-});
+}
 
-// --- INICIALIZAÇÃO DA APLICAÇÃO ---
 document.addEventListener('DOMContentLoaded', () => {
     popularSeletorDeAreas();
     popularDadosIniciais();
-    // Adiciona os eventos para o modal
     openModalBtn.addEventListener('click', openManageModal);
     closeModalBtn.addEventListener('click', closeModal);
     window.addEventListener('click', e => { if (e.target === manageModal) closeModal(); });
