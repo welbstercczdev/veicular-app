@@ -17,6 +17,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYD
 let db;
 function initDB() {
     return new Promise((resolve, reject) => {
+        // Versão 2 para permitir a atualização da estrutura (keyPath)
         const request = indexedDB.open('atividadesDB', 2);
         request.onupgradeneeded = e => {
             const dbInstance = e.target.result;
@@ -36,7 +37,12 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
 }).addTo(map);
 
-let quadrasLayer, activityStatus = {}, currentActivityId = null, userMarker = null, watchId = null;
+let quadrasLayer;
+let activityStatus = {};
+let currentActivityId = null;
+let currentActivityCycle = null;
+let userMarker = null;
+let watchId = null;
 
 function getQuadraId(feature) { if (feature.properties && feature.properties.title) try { return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10); } catch (e) { return null; } return null; }
 function getAreaId(feature) { if (feature.properties && feature.properties.description) try { return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10); } catch (e) { return null; } return null; }
@@ -79,9 +85,11 @@ window.atualizarStatusQuadra = async function(id, areaId, novoStatus) {
         updateProgressCounter();
         return;
     }
+    
     const transaction = db.transaction(['sync_queue'], 'readwrite');
     const store = transaction.objectStore('sync_queue');
-    store.put({ id_sync: `${currentActivityId}-${compositeKey}`, id_atividade: currentActivityId, id_quadra: id, status: novoStatus });
+    store.put({ id_sync: `${currentActivityId}-${currentActivityCycle}-${id}`, id_atividade: currentActivityId, ciclo: currentActivityCycle, id_quadra: id, status: novoStatus });
+    
     transaction.oncomplete = () => { console.log(`Quadra ${compositeKey} na fila.`); updateSyncBadge(); };
     transaction.onerror = () => {
         alert("Erro ao salvar localmente.");
@@ -111,6 +119,7 @@ async function syncOfflineUpdates() {
     if (isSyncing) return;
     updateStatusIndicator();
     if (!navigator.onLine || !db) return;
+
     const syncBtn = document.getElementById('sync-btn');
     const transaction = db.transaction(['sync_queue'], 'readonly');
     const allUpdatesRequest = transaction.objectStore('sync_queue').getAll();
@@ -121,11 +130,12 @@ async function syncOfflineUpdates() {
         syncBtn.disabled = true;
         syncBtn.classList.add('syncing');
         updateStatusIndicator(true);
-        const promises = updates.map(upd => fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateStatus', id_atividade: upd.id_atividade, id_quadra: upd.id_quadra, status: upd.status }) }));
+        const promises = updates.map(upd => fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateStatus', id_atividade: upd.id_atividade, ciclo: upd.ciclo, id_quadra: upd.id_quadra, status: upd.status }) }));
         try {
             await Promise.all(promises);
             const clearTransaction = db.transaction(['sync_queue'], 'readwrite');
-            clearTransaction.objectStore('sync_queue').clear();
+            const store = clearTransaction.objectStore('sync_queue');
+            store.clear();
             clearTransaction.oncomplete = () => { updateSyncBadge(); };
         } catch (error) {
             alert("Algumas atualizações não puderam ser enviadas.");
@@ -150,14 +160,27 @@ function updateStatusIndicator(syncing = false) {
 }
 
 async function carregarAtividade() {
-    currentActivityId = document.getElementById('atividade-select').value;
+    const selectedValue = document.getElementById('atividade-select').value;
     if (quadrasLayer) map.removeLayer(quadrasLayer);
-    if (!currentActivityId) { document.getElementById('progress-container').style.display = 'none'; return; }
+
+    if (!selectedValue) {
+        currentActivityId = null;
+        currentActivityCycle = null;
+        document.getElementById('progress-container').style.display = 'none';
+        return;
+    }
+    
+    const [id, ciclo] = selectedValue.split('::');
+    currentActivityId = id;
+    currentActivityCycle = ciclo;
+    
     const loadingPopup = L.popup({ closeButton: false, autoClose: false }).setLatLng(map.getCenter()).setContent(`Carregando...`).openOn(map);
     try {
         const url = new URL(SCRIPT_URL);
         url.searchParams.append('action', 'getActivity');
         url.searchParams.append('id_atividade', currentActivityId);
+        url.searchParams.append('ciclo', currentActivityCycle);
+        
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Erro de rede: ${response.statusText}`);
         const result = await response.json();
@@ -173,6 +196,7 @@ async function carregarAtividade() {
         for (const areaId of areasParaCarregar) {
             try {
                 const res = await fetch(`data/${areaId}.geojson?v=${new Date().getTime()}`);
+                if (!res.ok) continue;
                 const areaData = await res.json();
                 const featuresFiltradas = areaData.features.filter(f => {
                     const quadraId = getQuadraId(f);
@@ -201,27 +225,39 @@ async function carregarAtividade() {
 async function popularAtividadesPendentes() {
     const seletor = document.getElementById('atividade-select');
     try {
-        const url = new URL(SCRIPT_URL); url.searchParams.append('action', 'getPendingActivities');
-        const response = await fetch(url); if (!response.ok) throw new Error(`Erro de rede: ${response.statusText}`);
-        const result = await response.json(); if (!result.success) throw new Error(result.message);
+        const url = new URL(SCRIPT_URL);
+        url.searchParams.append('action', 'getPendingActivities');
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Erro de rede: ${response.statusText}`);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
         seletor.innerHTML = '<option value="">Selecione uma atividade...</option>';
         if (result.data.length === 0) {
-            const option = document.createElement('option'); option.textContent = "Nenhuma atividade pendente"; option.disabled = true; seletor.appendChild(option);
+            const option = document.createElement('option');
+            option.textContent = "Nenhuma atividade pendente";
+            option.disabled = true;
+            seletor.appendChild(option);
         } else {
             result.data.forEach(activity => {
                 const option = document.createElement('option');
-                option.value = activity.id;
+                option.value = `${activity.id}::${activity.ciclo}`;
                 option.textContent = `Atividade ${activity.id} (${activity.ciclo}) - ${activity.veiculo}`;
                 option.title = `Produto: ${activity.produto} | Dupla: ${activity.motorista} e ${activity.operador}`;
                 seletor.appendChild(option);
             });
         }
-    } catch(error) { seletor.innerHTML = '<option value="">Erro ao carregar</option>'; alert("Não foi possível buscar a lista de atividades: " + error.message); }
+    } catch(error) {
+        seletor.innerHTML = '<option value="">Erro ao carregar</option>';
+        alert("Não foi possível buscar a lista de atividades: " + error.message);
+    }
 }
 
 function updateProgressCounter() {
     const progressContainer = document.getElementById('progress-container');
-    if (!currentActivityId) { progressContainer.style.display = 'none'; return; }
+    if (!currentActivityId) {
+        progressContainer.style.display = 'none';
+        return;
+    }
     const quadras = Object.values(activityStatus);
     const totalQuadras = quadras.length;
     const quadrasTrabalhadas = quadras.filter(status => status === 'Trabalhada').length;
@@ -232,6 +268,7 @@ function updateProgressCounter() {
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         await initDB();
+        
         document.getElementById('atividade-select').addEventListener('change', carregarAtividade);
         document.getElementById('sync-btn').addEventListener('click', syncOfflineUpdates);
         window.addEventListener('online', syncOfflineUpdates);
@@ -241,10 +278,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         function handleLocationUpdate(position) {
             const { latitude, longitude, heading } = position.coords;
             const userLatLng = L.latLng(latitude, longitude);
-            
             const iconHtml = `<svg style="transform: rotate(${heading || 0}deg);" viewBox="0 0 24 24" width="24px" height="24px" fill="#007bff" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>`;
             const cssIcon = L.divIcon({ html: iconHtml, className: 'user-location-icon', iconSize: [24, 24], iconAnchor: [12, 12] });
-
             if (!userMarker) {
                 userMarker = L.marker(userLatLng, { icon: cssIcon }).addTo(map);
                 map.setView(userLatLng, 18);
@@ -270,7 +305,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             trackBtn.classList.remove('tracking');
             trackBtn.title = "Iniciar Rastreamento";
         }
-        trackBtn.addEventListener('click', (e) => { e.preventDefault(); if (watchId !== null) { stopTracking(); } else { startTracking(); } });
+        trackBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (watchId !== null) {
+                stopTracking();
+            } else {
+                startTracking();
+            }
+        });
         
         await popularAtividadesPendentes();
         updateStatusIndicator();

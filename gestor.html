@@ -20,18 +20,17 @@
                 <input type="text" id="atividade-id" placeholder="Ex: 2023-001">
             </div>
 
-            <!-- NOVO CAMPO DE CICLO -->
+            <!-- CAMPO DE CICLO ATUALIZADO PARA CHECKBOXES -->
             <div class="form-group">
-                <label for="ciclo-select">Ciclo:</label>
-                <select id="ciclo-select">
-                    <option value="">Selecione o ciclo...</option>
-                    <option value="Único">Único</option>
-                    <option value="1° Ciclo">1° Ciclo</option>
-                    <option value="2° Ciclo">2° Ciclo</option>
-                    <option value="3° Ciclo">3° Ciclo</option>
-                </select>
+                <label>Ciclos (selecione um ou mais):</label>
+                <div id="ciclos-container" class="checkbox-group">
+                    <label class="checkbox-label"><input type="checkbox" name="ciclo" value="Único"> Único</label>
+                    <label class="checkbox-label"><input type="checkbox" name="ciclo" value="1° Ciclo"> 1° Ciclo</label>
+                    <label class="checkbox-label"><input type="checkbox" name="ciclo" value="2° Ciclo"> 2° Ciclo</label>
+                    <label class="checkbox-label"><input type="checkbox" name="ciclo" value="3° Ciclo"> 3° Ciclo</label>
+                </div>
             </div>
-            <!-- FIM DO NOVO CAMPO -->
+            <!-- FIM DO CAMPO DE CICLO -->
             
             <div class="form-group">
                 <label for="veiculo-select">Veículo:</label>
@@ -113,9 +112,7 @@
                             <th>Ações</th>
                         </tr>
                     </thead>
-                    <tbody id="activities-table-body">
-                        <!-- Linhas serão inseridas aqui pelo JavaScript -->
-                    </tbody>
+                    <tbody id="activities-table-body"></tbody>
                 </table>
             </div>
         </div>
