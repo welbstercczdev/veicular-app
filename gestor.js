@@ -76,7 +76,6 @@ activitiesTableBody.addEventListener('click', async (e) => {
     const activityId = target.dataset.id;
     const activityCycle = target.dataset.ciclo;
     if (!activityId || !activityCycle) return;
-
     if (target.classList.contains('btn-delete')) {
         if (confirm(`Tem certeza que deseja excluir a atividade ${activityId} (${activityCycle})?`)) {
             try {
@@ -178,13 +177,9 @@ historyTableBody.addEventListener('click', async (e) => {
             const response = await fetch(url);
             const result = await response.json();
             if (!result.success) throw new Error(result.message);
-            
             const activity = result.data;
             const statusMap = activity.statusMap;
             closeModal();
-            
-            // --- INÍCIO DA CORREÇÃO ---
-            // 1. Preenche o formulário com os dados da atividade visualizada
             document.getElementById('atividade-id').value = activity.id;
             document.querySelectorAll('input[name="ciclo"]').forEach(cb => { cb.checked = (activity.ciclo === cb.value); });
             document.getElementById('veiculo-select').value = activity.veiculo;
@@ -194,11 +189,8 @@ historyTableBody.addEventListener('click', async (e) => {
             selectedBairros.clear();
             if (activity.bairros) activity.bairros.split(',').forEach(b => selectedBairros.add(b.trim()));
             renderBairroTags();
-            
-            // Limpa o mapa e a seleção
             if (quadrasLayer) map.removeLayer(quadrasLayer);
             selectedQuadras.clear();
-
             const quadrasDaAtividade = activity.quadras.map(q => `${q.area}-${q.id}`);
             const areasParaCarregar = [...new Set(activity.quadras.map(q => q.area))];
             let allFeatures = [];
@@ -210,64 +202,61 @@ historyTableBody.addEventListener('click', async (e) => {
                     allFeatures.push(...featuresFiltradas);
                 } catch (fetchError) { console.warn(`Não foi possível carregar a área ${areaId}.`); }
             }
-            if (allFeatures.length === 0) { alert("Nenhuma geometria de quadra foi encontrada para esta atividade."); return; }
+            if (allFeatures.length === 0) { alert("Nenhuma geometria de quadra foi encontrada para esta atividade."); updateSidebar(); return; }
             const featureCollection = { type: "FeatureCollection", features: allFeatures };
-            
-            // 2. Desenha o mapa e popula 'selectedQuadras' ao mesmo tempo
+            const workedQuadrasMap = new Map();
             quadrasLayer = L.geoJSON(featureCollection, {
                 style: (feature) => {
-                    const areaId = getAreaId(feature);
-                    const quadraId = getQuadraId(feature);
-                    const compositeKey = `${areaId}-${quadraId}`;
+                    const compositeKey = `${getAreaId(feature)}-${getQuadraId(feature)}`;
                     const status = statusMap[compositeKey] || 'Pendente';
-                    const fillColor = status === 'Trabalhada' ? '#28a745' : '#dc3545';
-                    return { color: getColorForArea(areaId), weight: 2, opacity: 1, fillColor: fillColor, fillOpacity: 0.6 };
+                    return { color: getColorForArea(getAreaId(feature)), weight: 2, fillColor: status === 'Trabalhada' ? '#28a745' : '#dc3545', fillOpacity: 0.6 };
                 },
                 onEachFeature: (feature, layer) => {
                     const quadraId = getQuadraId(feature);
                     const areaId = getAreaId(feature);
                     const compositeKey = `${areaId}-${quadraId}`;
-                    const lookupData = imoveisLookup[compositeKey] || { total_imoveis: 0, censitario: 'N/A' };
-                    let areaInSqMeters = 0;
-                    try {
-                        const latlngs = layer.getLatLngs();
-                        const coordsToCalc = Array.isArray(latlngs[0][0]) ? latlngs[0][0] : latlngs[0];
-                        areaInSqMeters = calculatePolygonArea(coordsToCalc);
-                    } catch(e) {}
-                    selectedQuadras.set(compositeKey, { id: quadraId, area: areaId, sqMeters: areaInSqMeters, totalImoveis: lookupData.total_imoveis, setor_censitario: lookupData.censitario });
-                    if (quadraId !== null) {
-                        layer.bindTooltip(quadraId.toString(), { permanent: true, direction: 'center', className: 'quadra-label' }).openTooltip();
+                    const status = statusMap[compositeKey];
+                    if (status === 'Trabalhada') {
+                        const lookupData = imoveisLookup[compositeKey] || { total_imoveis: 0 };
+                        let areaInSqMeters = 0;
+                        try {
+                            const tempLayer = L.geoJSON(feature);
+                            const latlngs = tempLayer.getLayers()[0].getLatLngs();
+                            const coordsToCalc = Array.isArray(latlngs[0][0]) ? latlngs[0][0] : latlngs[0];
+                            areaInSqMeters = calculatePolygonArea(coordsToCalc);
+                        } catch(e) {}
+                        workedQuadrasMap.set(compositeKey, { id: quadraId, area: areaId, sqMeters: areaInSqMeters, totalImoveis: lookupData.total_imoveis });
                     }
+                    if (quadraId !== null) layer.bindTooltip(quadraId.toString(), { permanent: true, direction: 'center', className: 'quadra-label' }).openTooltip();
                 }
             }).addTo(map);
             if (quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
-            
-            // 3. Atualiza a sidebar com os dados calculados
-            updateSidebar();
-            // --- FIM DA CORREÇÃO ---
-
+            updateSidebarWithCustomData(workedQuadrasMap);
         } catch (err) {
             alert("Erro ao carregar o mapa da atividade: " + err.message);
         }
     }
 });
 
-// --- RESTANTE DAS FUNÇÕES (sem alterações) ---
 function getColorForArea(areaId) { if (!areaId) return '#777'; const hue = (areaId * 137.508) % 360; return `hsl(${hue}, 80%, 50%)`; }
 function getQuadraId(feature) { if (feature.properties && feature.properties.title) try { return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10); } catch (e) { return null; } return null; }
 function getAreaId(feature) { if(feature.properties && feature.properties.description) try { return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10); } catch(e) { return null; } return null; }
 function calculatePolygonArea(latlngs) { if (!latlngs || latlngs.length < 3) return 0; let area = 0.0; const R = 6378137; for (let i = 0; i < latlngs.length; i++) { let p1 = latlngs[i]; let p2 = latlngs[(i + 1) % latlngs.length]; area += (p2.lng * Math.PI / 180 - p1.lng * Math.PI / 180) * (2 + Math.sin(p1.lat * Math.PI / 180) + Math.sin(p2.lat * Math.PI / 180)); } return Math.abs(area * R * R / 2.0); }
 
 function updateSidebar() {
+    updateSidebarWithCustomData(selectedQuadras);
+}
+
+function updateSidebarWithCustomData(quadrasMap) {
     quadrasSelecionadasList.innerHTML = ''; let totalArea = 0; let totalImoveis = 0;
-    const sortedQuadras = Array.from(selectedQuadras.values()).sort((a, b) => (a.area - b.area) || (a.id - b.id));
+    const sortedQuadras = Array.from(quadrasMap.values()).sort((a, b) => (a.area - b.area) || (a.id - b.id));
     sortedQuadras.forEach(quadra => {
         totalArea += quadra.sqMeters; totalImoveis += quadra.totalImoveis;
         const li = document.createElement('li'); li.style = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;';
         li.innerHTML = `<span>Área ${quadra.area} - Q ${quadra.id} (${quadra.totalImoveis} imóveis)</span><button class="remove-quadra-btn" data-key="${quadra.area}-${quadra.id}" style="width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px;">X</button>`;
         quadrasSelecionadasList.appendChild(li);
     });
-    countSpan.textContent = selectedQuadras.size; document.getElementById('total-area').textContent = totalArea.toFixed(2); document.getElementById('total-imoveis').textContent = totalImoveis;
+    countSpan.textContent = quadrasMap.size; document.getElementById('total-area').textContent = totalArea.toFixed(2); document.getElementById('total-imoveis').textContent = totalImoveis;
 }
 
 document.getElementById('quadras-list').addEventListener('click', function(e) {

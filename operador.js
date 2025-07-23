@@ -1,9 +1,13 @@
-// Registra o Service Worker
+// Registra o Service Worker para habilitar as funcionalidades offline (PWA)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./service-worker.js')
-      .then(reg => console.log('Service Worker registrado:', reg))
-      .catch(err => console.log('Falha ao registrar SW:', err));
+      .then(registration => {
+        console.log('Service Worker registrado com sucesso:', registration);
+      })
+      .catch(error => {
+        console.log('Falha ao registrar Service Worker:', error);
+      });
   });
 }
 
@@ -28,7 +32,9 @@ function initDB() {
 // --- LÓGICA PRINCIPAL DA APLICAÇÃO ---
 const map = L.map('map', { zoomControl: false }).setView([-23.1791, -45.8872], 13);
 L.control.zoom({ position: 'topright' }).addTo(map);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+}).addTo(map);
 
 let quadrasLayer, activityStatus = {}, currentActivityId = null, currentActivityCycle = null, currentActivityData = {}, userMarker = null, watchId = null;
 const bulletinModal = document.getElementById('bulletin-modal');
@@ -39,6 +45,7 @@ const closeBulletinBtn = bulletinModal.querySelector('.modal-close');
 function getQuadraId(feature) { if (feature.properties && feature.properties.title) try { return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10); } catch (e) { return null; } return null; }
 function getAreaId(feature) { if (feature.properties && feature.properties.description) try { return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10); } catch (e) { return null; } return null; }
 function getColorForArea(areaId) { if (!areaId) return '#777'; const hue = (areaId * 137.508) % 360; return `hsl(${hue}, 80%, 50%)`; }
+
 function getStyle(feature) {
     const id = getQuadraId(feature); const areaId = getAreaId(feature);
     if (id === null || areaId === null) return { opacity: 0, fillOpacity: 0 };
@@ -73,7 +80,6 @@ async function clearPendingUpdates() {
         clearRequest.onsuccess = () => {
             console.log("Fila de sincronização local foi limpa.");
             updateSyncBadge();
-            // Recarrega a atividade para reverter as mudanças visuais no mapa
             if (currentActivityId) {
                 carregarAtividade();
             }
@@ -83,7 +89,6 @@ async function clearPendingUpdates() {
         };
     }
 }
-
 
 window.atualizarStatusQuadra = async function(id, areaId, novoStatus) {
     const compositeKey = `${areaId}-${id}`;
@@ -136,7 +141,8 @@ async function syncOfflineUpdates() {
         allUpdatesRequest.onsuccess = async () => {
             const updates = allUpdatesRequest.result;
             if (updates.length === 0) { resolve(true); return; }
-            isSyncing = true; syncBtn.disabled = true; syncBtn.classList.add('syncing'); updateStatusIndicator(true);
+            isSyncing = true; syncBtn.disabled = true; syncBtn.classList.add('syncing');
+            updateStatusIndicator(true);
             const promises = updates.map(upd => fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateStatus', id_atividade: upd.id_atividade, ciclo: upd.ciclo, id_quadra: upd.id_quadra, status: upd.status }) }));
             try {
                 await Promise.all(promises);
@@ -148,7 +154,8 @@ async function syncOfflineUpdates() {
                 alert("Falha ao sincronizar. Verifique sua conexão e tente novamente.");
                 resolve(false);
             } finally {
-                isSyncing = false; syncBtn.disabled = false; syncBtn.classList.remove('syncing'); updateStatusIndicator();
+                isSyncing = false; syncBtn.disabled = false; syncBtn.classList.remove('syncing');
+                updateStatusIndicator();
             }
         };
         allUpdatesRequest.onerror = () => resolve(false);
@@ -251,15 +258,9 @@ function minutesToTime(totalMinutes) { if (isNaN(totalMinutes) || totalMinutes <
 
 function setupBulletinCalculations() {
     const fields = {
-        volInicial: document.getElementById('bulletin-vol-inicial'),
-        volFinal: document.getElementById('bulletin-vol-final'),
-        consumo: document.getElementById('bulletin-consumo'),
-        horaInicio: document.getElementById('bulletin-hora-inicio'),
-        horaTermino: document.getElementById('bulletin-hora-termino'),
-        interrupcao: document.getElementById('bulletin-interrupcao'),
-        tempoTotal: document.getElementById('bulletin-tempo-total'),
-        odoInicio: document.getElementById('bulletin-odo-inicio'),
-        odoTermino: document.getElementById('bulletin-odo-termino'),
+        volInicial: document.getElementById('bulletin-vol-inicial'), volFinal: document.getElementById('bulletin-vol-final'), consumo: document.getElementById('bulletin-consumo'),
+        horaInicio: document.getElementById('bulletin-hora-inicio'), horaTermino: document.getElementById('bulletin-hora-termino'), interrupcao: document.getElementById('bulletin-interrupcao'),
+        tempoTotal: document.getElementById('bulletin-tempo-total'), odoInicio: document.getElementById('bulletin-odo-inicio'), odoTermino: document.getElementById('bulletin-odo-termino'),
         kmRodado: document.getElementById('bulletin-km-rodado')
     };
     const update = () => {
@@ -328,27 +329,67 @@ bulletinForm.addEventListener('submit', async (e) => {
     }
 });
 
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         await initDB();
+        
         finishBtn.addEventListener('click', openBulletinModal);
         closeBulletinBtn.addEventListener('click', closeBulletinModal);
         window.addEventListener('click', e => { if (e.target === bulletinModal) closeBulletinModal(); });
+        
         document.getElementById('atividade-select').addEventListener('change', () => {});
         document.getElementById('sync-btn').addEventListener('click', syncOfflineUpdates);
         document.getElementById('clear-btn').addEventListener('click', clearPendingUpdates);
+        
         window.addEventListener('online', syncOfflineUpdates);
         window.addEventListener('offline', updateStatusIndicator);
+        
         const trackBtn = document.getElementById('track-btn');
-        function handleLocationUpdate(position) { /* ...código anterior... */ }
-        function handleLocationError(error) { /* ...código anterior... */ }
-        function startTracking() { /* ...código anterior... */ }
-        function stopTracking() { /* ...código anterior... */ }
-        trackBtn.addEventListener('click', (e) => { e.preventDefault(); if (watchId !== null) { stopTracking(); } else { startTracking(); } });
+        function handleLocationUpdate(position) {
+            const { latitude, longitude, heading } = position.coords;
+            const userLatLng = L.latLng(latitude, longitude);
+            const iconHtml = `<svg style="transform: rotate(${heading || 0}deg);" viewBox="0 0 24 24" width="24px" height="24px" fill="#007bff" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>`;
+            const cssIcon = L.divIcon({ html: iconHtml, className: 'user-location-icon', iconSize: [24, 24], iconAnchor: [12, 12] });
+            if (!userMarker) {
+                userMarker = L.marker(userLatLng, { icon: cssIcon }).addTo(map);
+                map.setView(userLatLng, 18);
+            } else {
+                userMarker.setLatLng(userLatLng);
+                userMarker.setIcon(cssIcon);
+            }
+        }
+        function handleLocationError(error) {
+            console.error("Erro de Geolocalização:", error);
+            alert('Não foi possível obter sua localização contínua.');
+            stopTracking();
+        }
+        function startTracking() {
+            if (!navigator.geolocation) return alert('Geolocalização não suportada.');
+            trackBtn.classList.add('tracking');
+            trackBtn.title = "Parar Rastreamento";
+            watchId = navigator.geolocation.watchPosition(handleLocationUpdate, handleLocationError, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+        }
+        function stopTracking() {
+            if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+            if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+            trackBtn.classList.remove('tracking');
+            trackBtn.title = "Iniciar Rastreamento";
+        }
+        trackBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (watchId !== null) {
+                stopTracking();
+            } else {
+                startTracking();
+            }
+        });
+        
         setupBulletinCalculations();
         await popularAtividadesPendentes();
         updateStatusIndicator();
         await updateSyncBadge();
+        
     } catch (error) {
         alert("Falha na inicialização: " + error.message);
     }
