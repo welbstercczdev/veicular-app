@@ -130,3 +130,21 @@ th { background-color: #f2f2f2; }
     gap: 5px;
     font-weight: normal;
 }
+
+#history-search-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+#history-search-form input {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+#history-search-form button {
+    padding: 8px 15px;
+    width: auto;
+    margin: 0;
+}

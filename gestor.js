@@ -3,10 +3,17 @@ const AGENTES_API_URL = "https://script.google.com/macros/s/AKfycbxg6XocN88LKvq1
 const BAIRROS_API_URL = "https://script.google.com/macros/s/AKfycbw7VInWajEJflcf43PyWeiCh2IfRxVOlZjw3uiHgbKqO_12Y9ARUDnGxio6abnxxpdy/exec";
 const TOTAL_AREAS = 109;
 
+// Inicialização do mapa
 const map = L.map('map').setView([-23.1791, -45.8872], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-let quadrasLayer, imoveisLookup = {}, selectedQuadras = new Map(), selectedBairros = new Set();
+// Variáveis globais
+let quadrasLayer;
+let imoveisLookup = {};
+const selectedQuadras = new Map();
+const selectedBairros = new Set();
+
+// Elementos da DOM
 const quadrasSelecionadasList = document.getElementById('quadras-list');
 const countSpan = document.getElementById('count');
 const areaSelector = document.getElementById('area-selector');
@@ -14,11 +21,15 @@ const manageModal = document.getElementById('manage-modal');
 const closeModalBtn = manageModal.querySelector('.modal-close');
 const openModalBtn = document.getElementById('manage-activities-btn');
 const activitiesTableBody = document.getElementById('activities-table-body');
+const searchHistoryBtn = document.getElementById('search-history-btn');
+const historyTableBody = document.getElementById('history-table-body');
+
+// --- Lógica da Janela Modal ---
 
 function renderActivitiesTable(activities) {
     activitiesTableBody.innerHTML = '';
     if (!activities || activities.length === 0) {
-        activitiesTableBody.innerHTML = '<tr><td colspan="5">Nenhuma atividade encontrada.</td></tr>';
+        activitiesTableBody.innerHTML = '<tr><td colspan="5">Nenhuma atividade em andamento encontrada.</td></tr>';
         return;
     }
     activities.forEach(act => {
@@ -73,12 +84,9 @@ activitiesTableBody.addEventListener('click', async (e) => {
                 await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
                 alert(`Solicitação para excluir a atividade ${activityId} (${activityCycle}) foi enviada.`);
                 openManageModal();
-            } catch (err) {
-                alert("Erro de rede ao tentar excluir.");
-            }
+            } catch (err) { alert("Erro de rede ao tentar excluir."); }
         }
     }
-
     if (target.classList.contains('btn-edit')) {
         try {
             const url = new URL(SCRIPT_URL);
@@ -111,12 +119,140 @@ activitiesTableBody.addEventListener('click', async (e) => {
             updateSidebar();
             closeModal();
             alert(`Atividade ${activityId} (${activityCycle}) carregada para edição.`);
+        } catch (err) { alert("Erro ao carregar detalhes: " + err.message); }
+    }
+});
+
+async function searchHistory() {
+    const searchId = document.getElementById('search-id-input').value;
+    const startDate = document.getElementById('search-start-date').value;
+    const endDate = document.getElementById('search-end-date').value;
+    historyTableBody.innerHTML = '<tr><td colspan="5">Buscando...</td></tr>';
+    try {
+        const url = new URL(SCRIPT_URL);
+        url.searchParams.append('action', 'getCompletedActivities');
+        if (searchId) url.searchParams.append('id_atividade', searchId);
+        if (startDate) url.searchParams.append('startDate', startDate);
+        if (endDate) url.searchParams.append('endDate', endDate);
+        const response = await fetch(url);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+        renderHistoryTable(result.data);
+    } catch (error) {
+        historyTableBody.innerHTML = `<tr><td colspan="5">Erro ao buscar: ${error.message}</td></tr>`;
+    }
+}
+
+function renderHistoryTable(activities) {
+    historyTableBody.innerHTML = '';
+    if (activities.length === 0) {
+        historyTableBody.innerHTML = '<tr><td colspan="5">Nenhum resultado encontrado.</td></tr>';
+        return;
+    }
+    activities.forEach(act => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${act.id} (${act.ciclo})</td>
+            <td>${act.data}</td>
+            <td>${act.viatura}</td>
+            <td>${act.ocorrencias || 'Nenhuma'}</td>
+            <td class="action-buttons">
+                <button class="btn-view-map" data-id="${act.id}" data-ciclo="${act.ciclo}">Ver Mapa</button>
+            </td>
+        `;
+        historyTableBody.appendChild(row);
+    });
+}
+
+historyTableBody.addEventListener('click', async (e) => {
+    const target = e.target;
+    if (target.classList.contains('btn-view-map')) {
+        const activityId = target.dataset.id;
+        const activityCycle = target.dataset.ciclo;
+        if (!activityId || !activityCycle) return;
+        try {
+            const url = new URL(SCRIPT_URL);
+            url.searchParams.append('action', 'getActivityDetails');
+            url.searchParams.append('id_atividade', activityId);
+            url.searchParams.append('ciclo', activityCycle);
+            const response = await fetch(url);
+            const result = await response.json();
+            if (!result.success) throw new Error(result.message);
+            
+            const activity = result.data;
+            const statusMap = activity.statusMap;
+            closeModal();
+            
+            // --- INÍCIO DA CORREÇÃO ---
+            // 1. Preenche o formulário com os dados da atividade visualizada
+            document.getElementById('atividade-id').value = activity.id;
+            document.querySelectorAll('input[name="ciclo"]').forEach(cb => { cb.checked = (activity.ciclo === cb.value); });
+            document.getElementById('veiculo-select').value = activity.veiculo;
+            document.getElementById('produto-select').value = activity.produto;
+            document.getElementById('motorista-input').value = activity.motorista;
+            document.getElementById('operador-input').value = activity.operador;
+            selectedBairros.clear();
+            if (activity.bairros) activity.bairros.split(',').forEach(b => selectedBairros.add(b.trim()));
+            renderBairroTags();
+            
+            // Limpa o mapa e a seleção
+            if (quadrasLayer) map.removeLayer(quadrasLayer);
+            selectedQuadras.clear();
+
+            const quadrasDaAtividade = activity.quadras.map(q => `${q.area}-${q.id}`);
+            const areasParaCarregar = [...new Set(activity.quadras.map(q => q.area))];
+            let allFeatures = [];
+            for (const areaId of areasParaCarregar) {
+                try {
+                    const res = await fetch(`data/${areaId}.geojson?v=${new Date().getTime()}`);
+                    const areaData = await res.json();
+                    const featuresFiltradas = areaData.features.filter(f => quadrasDaAtividade.includes(`${getAreaId(f)}-${getQuadraId(f)}`));
+                    allFeatures.push(...featuresFiltradas);
+                } catch (fetchError) { console.warn(`Não foi possível carregar a área ${areaId}.`); }
+            }
+            if (allFeatures.length === 0) { alert("Nenhuma geometria de quadra foi encontrada para esta atividade."); return; }
+            const featureCollection = { type: "FeatureCollection", features: allFeatures };
+            
+            // 2. Desenha o mapa e popula 'selectedQuadras' ao mesmo tempo
+            quadrasLayer = L.geoJSON(featureCollection, {
+                style: (feature) => {
+                    const areaId = getAreaId(feature);
+                    const quadraId = getQuadraId(feature);
+                    const compositeKey = `${areaId}-${quadraId}`;
+                    const status = statusMap[compositeKey] || 'Pendente';
+                    const fillColor = status === 'Trabalhada' ? '#28a745' : '#dc3545';
+                    return { color: getColorForArea(areaId), weight: 2, opacity: 1, fillColor: fillColor, fillOpacity: 0.6 };
+                },
+                onEachFeature: (feature, layer) => {
+                    const quadraId = getQuadraId(feature);
+                    const areaId = getAreaId(feature);
+                    const compositeKey = `${areaId}-${quadraId}`;
+                    const lookupData = imoveisLookup[compositeKey] || { total_imoveis: 0, censitario: 'N/A' };
+                    let areaInSqMeters = 0;
+                    try {
+                        const latlngs = layer.getLatLngs();
+                        const coordsToCalc = Array.isArray(latlngs[0][0]) ? latlngs[0][0] : latlngs[0];
+                        areaInSqMeters = calculatePolygonArea(coordsToCalc);
+                    } catch(e) {}
+                    selectedQuadras.set(compositeKey, { id: quadraId, area: areaId, sqMeters: areaInSqMeters, totalImoveis: lookupData.total_imoveis, setor_censitario: lookupData.censitario });
+                    if (quadraId !== null) {
+                        layer.bindTooltip(quadraId.toString(), { permanent: true, direction: 'center', className: 'quadra-label' }).openTooltip();
+                    }
+                }
+            }).addTo(map);
+            if (quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
+            
+            // 3. Atualiza a sidebar com os dados calculados
+            updateSidebar();
+            // --- FIM DA CORREÇÃO ---
+
         } catch (err) {
-            alert("Erro ao carregar detalhes: " + err.message);
+            alert("Erro ao carregar o mapa da atividade: " + err.message);
         }
     }
 });
 
+// --- RESTANTE DAS FUNÇÕES (sem alterações) ---
 function getColorForArea(areaId) { if (!areaId) return '#777'; const hue = (areaId * 137.508) % 360; return `hsl(${hue}, 80%, 50%)`; }
 function getQuadraId(feature) { if (feature.properties && feature.properties.title) try { return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10); } catch (e) { return null; } return null; }
 function getAreaId(feature) { if(feature.properties && feature.properties.description) try { return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10); } catch(e) { return null; } return null; }
@@ -205,13 +341,28 @@ document.getElementById('bairros-selecionados-container').addEventListener('clic
 
 async function popularDadosIniciais() {
     try {
-        const [agentesRes, bairrosRes, imoveisRes] = await Promise.all([ fetch(AGENTES_API_URL), fetch(BAIRROS_API_URL), fetch('data/imoveis_lookup.json') ]);
+        const [agentesRes, bairrosRes, imoveisRes, lastActivityRes] = await Promise.all([
+            fetch(AGENTES_API_URL), fetch(BAIRROS_API_URL), fetch('data/imoveis_lookup.json'),
+            fetch(`${SCRIPT_URL}?action=getLastActivityData`)
+        ]);
         const agentesData = await agentesRes.json(); const bairrosData = await bairrosRes.json(); imoveisLookup = await imoveisRes.json();
+        const lastActivityData = await lastActivityRes.json();
         if (agentesData.error) throw new Error(agentesData.error);
         if (bairrosData.error || !bairrosData.agentes) throw new Error(`API de Bairros: ${bairrosData.error || 'formato inválido'}`);
         setupAutocomplete('motorista-input', 'motorista-list', agentesData.agentes, val => { document.getElementById('motorista-input').value = val; });
         setupAutocomplete('operador-input', 'operador-list', agentesData.agentes, val => { document.getElementById('operador-input').value = val; });
         setupAutocomplete('bairro-input', 'bairro-list', bairrosData.agentes, bairro => { selectedBairros.add(bairro); renderBairroTags(); document.getElementById('bairro-input').value = ''; });
+        if (lastActivityData.success && lastActivityData.data) {
+            const data = lastActivityData.data;
+            document.getElementById('veiculo-select').value = data.veiculo || '';
+            document.getElementById('produto-select').value = data.produto || '';
+            document.getElementById('motorista-input').value = data.motorista || '';
+            document.getElementById('operador-input').value = data.operador || '';
+            if (data.bairros) {
+                data.bairros.split(',').forEach(b => selectedBairros.add(b.trim()));
+                renderBairroTags();
+            }
+        }
         document.getElementById('motorista-input').placeholder = "Digite para buscar...";
         document.getElementById('operador-input').placeholder = "Digite para buscar...";
         document.getElementById('bairro-input').placeholder = "Digite para buscar...";
@@ -278,4 +429,5 @@ document.addEventListener('DOMContentLoaded', () => {
     openModalBtn.addEventListener('click', openManageModal);
     closeModalBtn.addEventListener('click', closeModal);
     window.addEventListener('click', e => { if (e.target === manageModal) closeModal(); });
+    searchHistoryBtn.addEventListener('click', searchHistory);
 });

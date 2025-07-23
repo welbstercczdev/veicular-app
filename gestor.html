@@ -20,7 +20,6 @@
                 <input type="text" id="atividade-id" placeholder="Ex: 2023-001">
             </div>
 
-            <!-- CAMPO DE CICLO ATUALIZADO PARA CHECKBOXES -->
             <div class="form-group">
                 <label>Ciclos (selecione um ou mais):</label>
                 <div id="ciclos-container" class="checkbox-group">
@@ -30,7 +29,6 @@
                     <label class="checkbox-label"><input type="checkbox" name="ciclo" value="3° Ciclo"> 3° Ciclo</label>
                 </div>
             </div>
-            <!-- FIM DO CAMPO DE CICLO -->
             
             <div class="form-group">
                 <label for="veiculo-select">Veículo:</label>
@@ -96,23 +94,50 @@
     </div>
     <div id="map"></div>
 
-    <!-- Estrutura da Janela Modal -->
+    <!-- Estrutura da Janela Modal ATUALIZADA -->
     <div id="manage-modal" class="modal-overlay" style="display: none;">
         <div class="modal">
             <button class="modal-close">×</button>
-            <h2>Atividades Criadas</h2>
+            
+            <h2>Atividades em Andamento</h2>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>ID Atividade</th>
-                            <th>Data</th>
+                            <th>ID (Ciclo)</th>
+                            <th>Data Criação</th>
                             <th>Veículo</th>
                             <th>Progresso</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody id="activities-table-body"></tbody>
+                </table>
+            </div>
+            
+            <hr style="margin: 25px 0;">
+
+            <h2>Histórico de Atividades Finalizadas</h2>
+            <div id="history-search-form">
+                <input type="text" id="search-id-input" placeholder="Buscar por ID...">
+                <input type="date" id="search-start-date">
+                <input type="date" id="search-end-date">
+                <button id="search-history-btn">Buscar</button>
+            </div>
+            <div class="table-container" style="margin-top: 15px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID (Ciclo)</th>
+                            <th>Data Finalização</th>
+                            <th>Viatura</th>
+                            <th>Ocorrências</th>
+                            <th>Mapa</th> <!-- Nova Coluna -->
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body">
+                        <tr><td colspan="5">Use os filtros acima para buscar no histórico.</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
