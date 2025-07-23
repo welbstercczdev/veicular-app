@@ -328,35 +328,38 @@ document.getElementById('bairros-selecionados-container').addEventListener('clic
     }
 });
 
+// --- FUNÇÃO CORRIGIDA ---
 async function popularDadosIniciais() {
     try {
-        const [agentesRes, bairrosRes, imoveisRes, lastActivityRes] = await Promise.all([
-            fetch(AGENTES_API_URL), fetch(BAIRROS_API_URL), fetch('data/imoveis_lookup.json'),
-            fetch(`${SCRIPT_URL}?action=getLastActivityData`)
+        const [agentesRes, bairrosRes, imoveisRes] = await Promise.all([
+            fetch(AGENTES_API_URL), 
+            fetch(BAIRROS_API_URL), 
+            fetch('data/imoveis_lookup.json')
         ]);
-        const agentesData = await agentesRes.json(); const bairrosData = await bairrosRes.json(); imoveisLookup = await imoveisRes.json();
-        const lastActivityData = await lastActivityRes.json();
+        const agentesData = await agentesRes.json();
+        const bairrosData = await bairrosRes.json();
+        imoveisLookup = await imoveisRes.json();
+        
         if (agentesData.error) throw new Error(agentesData.error);
         if (bairrosData.error || !bairrosData.agentes) throw new Error(`API de Bairros: ${bairrosData.error || 'formato inválido'}`);
+        
         setupAutocomplete('motorista-input', 'motorista-list', agentesData.agentes, val => { document.getElementById('motorista-input').value = val; });
         setupAutocomplete('operador-input', 'operador-list', agentesData.agentes, val => { document.getElementById('operador-input').value = val; });
-        setupAutocomplete('bairro-input', 'bairro-list', bairrosData.agentes, bairro => { selectedBairros.add(bairro); renderBairroTags(); document.getElementById('bairro-input').value = ''; });
-        if (lastActivityData.success && lastActivityData.data) {
-            const data = lastActivityData.data;
-            document.getElementById('veiculo-select').value = data.veiculo || '';
-            document.getElementById('produto-select').value = data.produto || '';
-            document.getElementById('motorista-input').value = data.motorista || '';
-            document.getElementById('operador-input').value = data.operador || '';
-            if (data.bairros) {
-                data.bairros.split(',').forEach(b => selectedBairros.add(b.trim()));
-                renderBairroTags();
-            }
-        }
+        setupAutocomplete('bairro-input', 'bairro-list', bairrosData.agentes, bairro => { 
+            selectedBairros.add(bairro); 
+            renderBairroTags(); 
+            document.getElementById('bairro-input').value = ''; 
+        });
+        
         document.getElementById('motorista-input').placeholder = "Digite para buscar...";
         document.getElementById('operador-input').placeholder = "Digite para buscar...";
         document.getElementById('bairro-input').placeholder = "Digite para buscar...";
-    } catch(e) { alert("Erro ao carregar dados iniciais: " + e.message); }
+
+    } catch(e) { 
+        alert("Erro ao carregar dados iniciais: " + e.message); 
+    }
 }
+
 
 areaSelector.addEventListener('change', async (e) => {
     const areaId = e.target.value; if (!areaId) return; if (quadrasLayer) map.removeLayer(quadrasLayer);
