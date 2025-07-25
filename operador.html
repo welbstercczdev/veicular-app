@@ -6,6 +6,8 @@
     <title>Operador - Mapa de Trabalho</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    <!-- Adiciona o CSS do SweetAlert2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     
     <style>
         /* --- GERAL E RESET --- */
@@ -19,7 +21,7 @@
             background-color: #f0f2f5;
         }
         
-        /* --- PAINEL DE CONTROLE SUPERIOR (COM CORREÇÃO DE LAYOUT) --- */
+        /* --- PAINEL DE CONTROLE SUPERIOR --- */
         #controls {
             position: fixed;
             top: 10px;
@@ -34,7 +36,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 15px;
-            flex-wrap: wrap; /* Permite que os itens quebrem para a linha de baixo */
+            flex-wrap: wrap;
         }
         .control-group {
             display: flex;
@@ -42,8 +44,8 @@
             gap: 8px;
         }
         .control-group:first-child {
-            flex-grow: 1; /* Faz o seletor de atividade crescer */
-            min-width: 200px; /* Garante um tamanho mínimo antes de quebrar */
+            flex-grow: 1;
+            min-width: 200px;
         }
         #controls label {
             font-weight: bold;
@@ -126,7 +128,7 @@
         /* --- ESTILOS DO MODAL DO BOLETIM --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.7); display: none; /* Inicia escondido */
+            background-color: rgba(0, 0, 0, 0.7); display: none;
             justify-content: center; align-items: center; z-index: 10000;
         }
         .modal-content {
@@ -247,6 +249,7 @@
     
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <script src="operador.js"></script>
 </body>
 </html>
