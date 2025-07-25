@@ -9,81 +9,104 @@
     
     <style>
         /* --- GERAL E RESET --- */
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
-        #map { height: 100vh; width: 100vw; background-color: #f0f2f5; }
-        
-        /* --- PAINEL DE CONTROLE SUPERIOR --- */
-        #controls {
-            position: fixed; top: 10px; left: 10px; right: 10px; z-index: 1001;
-            background: white; padding: 8px 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            display: flex; align-items: center; justify-content: space-between; gap: 20px;
+        body { 
+            margin: 0; padding: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
         }
-        .control-group { display: flex; align-items: center; gap: 8px; }
-        #controls label { font-weight: bold; color: #555; white-space: nowrap; }
-        #controls select { flex-grow: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; background-color: #f9f9f9; }
-        #progress-counter { font-weight: bold; font-size: 16px; color: #007bff; white-space: nowrap; }
+        #map { 
+            height: 100vh; width: 100vw; 
+            background-color: #f0f2f5;
+        }
+        
+        /* --- PAINEL DE CONTROLE SUPERIOR (COM CORREÇÃO DE LAYOUT) --- */
+        #controls {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 1001;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            flex-wrap: wrap; /* Permite que os itens quebrem para a linha de baixo */
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .control-group:first-child {
+            flex-grow: 1; /* Faz o seletor de atividade crescer */
+            min-width: 200px; /* Garante um tamanho mínimo antes de quebrar */
+        }
+        #controls label {
+            font-weight: bold;
+            color: #555;
+            white-space: nowrap;
+        }
+        #controls select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            background-color: #f9f9f9;
+        }
+        #progress-counter {
+            font-weight: bold;
+            font-size: 16px;
+            color: #007bff;
+            white-space: nowrap;
+        }
 
-        /* --- PAINEL DE AÇÕES FLUTUANTE (DIREITA) --- */
+        /* --- PAINEL DE AÇÕES INFERIOR --- */
         #actions-panel {
-            position: fixed; top: 70px; right: 10px; z-index: 1000;
-            display: flex; flex-direction: column; gap: 10px;
+            position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%); z-index: 1000;
+            display: flex; gap: 15px;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px; border-radius: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
         .action-btn {
-            position: relative; width: 44px; height: 44px; background-color: white; color: #333;
-            border-radius: 50%; border: none; display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3); cursor: pointer; transition: all 0.2s ease;
+            position: relative; width: 48px; height: 48px;
+            background-color: #fff; color: #333; border-radius: 50%;
+            border: 1px solid #ddd; display: flex;
+            justify-content: center; align-items: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1); cursor: pointer;
+            transition: all 0.2s ease;
         }
-        .action-btn:hover { background-color: #f4f4f4; }
+        .action-btn:hover { background-color: #f0f0f0; }
         .action-btn.tracking { background-color: #007bff; color: white; }
-        .action-btn:disabled { background-color: #e0e0e0; cursor: not-allowed; }
+        .action-btn:disabled { background-color: #e0e0e0; color: #aaa; cursor: not-allowed; }
         .action-btn svg { width: 24px; height: 24px; }
-
-        /* --- BADGE DE SINCRONIZAÇÃO --- */
+        
         .sync-badge {
             position: absolute; top: -2px; right: -2px; background-color: #dc3545; color: white;
             border-radius: 50%; width: 20px; height: 20px; font-size: 12px; font-weight: bold;
-            display: flex; justify-content: center; align-items: center; border: 2px solid white;
-            display: none;
+            display: none; justify-content: center; align-items: center; border: 2px solid white;
         }
         .sync-badge.visible { display: flex; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
         #sync-btn.syncing svg { animation: spin 1s linear infinite; }
-
+        
         /* --- INDICADOR DE STATUS --- */
         #status-indicator {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background-color: #28a745; color: white; padding: 8px 18px; border-radius: 20px;
-            font-size: 14px; font-weight: 500; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-            transition: all 0.3s ease-in-out; opacity: 0; transform: translate(-50%, 20px);
+            position: fixed; bottom: 10px; left: 10px;
+            background-color: #28a745; color: white; padding: 5px 15px;
+            border-radius: 15px; font-size: 14px;
+            z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s ease-in-out; opacity: 0;
         }
-        #status-indicator.visible { opacity: 1; transform: translateX(-50%); }
+        #status-indicator.visible { opacity: 1; }
         #status-indicator.offline { background-color: #6c757d; }
         #status-indicator.syncing { background-color: #ffc107; color: black; }
-
-        /* --- ESTILOS PARA O MODAL DO BOLETIM --- */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.7); display: flex;
-            justify-content: center; align-items: center; z-index: 10000;
-        }
-        .modal-content {
-            background-color: white; padding: 25px; border-radius: 8px;
-            width: 90%; max-width: 550px; max-height: 90vh; overflow-y: auto;
-            position: relative; box-sizing: border-box;
-        }
-        .modal-close {
-            position: absolute; top: 10px; right: 15px; background: none;
-            border: none; font-size: 28px; cursor: pointer; color: #aaa; line-height: 1;
-        }
-        .modal-close:hover { color: #333; }
-        .modal-content h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
-        .form-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
-        .form-group { flex: 1; min-width: 150px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 14px; color: #555;}
-        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        .form-group input[readonly] { background-color: #e9ecef; cursor: not-allowed; }
-        .checkbox-group { display: flex; flex-direction: column; gap: 5px; }
-        .checkbox-group label { font-weight: normal; font-size: 15px; }
 
         /* --- OUTROS ESTILOS --- */
         .quadra-label {
@@ -99,6 +122,30 @@
             filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.5));
             transition: transform 0.5s ease-out;
         }
+        
+        /* --- ESTILOS DO MODAL DO BOLETIM --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.7); display: none; /* Inicia escondido */
+            justify-content: center; align-items: center; z-index: 10000;
+        }
+        .modal-content {
+            background-color: white; padding: 20px; border-radius: 8px;
+            width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute; top: 10px; right: 15px; background: none;
+            border: none; font-size: 24px; cursor: pointer; color: #888;
+        }
+        .modal-content h3 { margin-top: 0; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-group { flex: 1; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        .form-group input, .form-group textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .form-group input[readonly] { background-color: #e9ecef; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
+        .checkbox-group label { font-weight: normal; }
     </style>
 </head>
 <body>
@@ -119,38 +166,28 @@
         </div>
     </div>
 
-    <!-- Painel de Ações Flutuante -->
+    <!-- Painel de Ações Inferior -->
     <div id="actions-panel">
-        <button id="finish-btn" class="action-btn" title="Finalizar e Enviar Boletim" style="display: none; background-color: #28a745; color: white;">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-        </button>
-         <!-- NOVO BOTÃO DE LIMPAR -->
-    <button id="clear-btn" class="action-btn" title="Limpar alterações pendentes" disabled>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-        </svg>
-    </button>
         <button id="sync-btn" class="action-btn" title="Enviar alterações pendentes">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
             <span id="sync-badge" class="sync-badge"></span>
+        </button>
+        <button id="clear-btn" class="action-btn" title="Limpar alterações pendentes" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+        <button id="finish-btn" class="action-btn" title="Finalizar e Enviar Boletim" style="display: none;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
         </button>
         <button id="track-btn" class="action-btn" title="Iniciar Rastreamento">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
         </button>
     </div>
 
-    <!-- Indicador de Status Centralizado -->
+    <!-- Indicador de Status -->
     <div id="status-indicator">Conectado</div>
     
-    <!-- Molde SVG escondido -->
-    <div style="display: none;">
-        <svg id="user-marker-svg" viewBox="0 0 24 24" fill="#007bff" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
-        </svg>
-    </div>
-
-    <!-- JANELA MODAL DO BOLETIM (escondida por padrão) -->
-    <div id="bulletin-modal" class="modal-overlay" style="display: none;">
+    <!-- Modal do Boletim -->
+    <div id="bulletin-modal" class="modal-overlay">
         <div class="modal-content">
             <button class="modal-close">×</button>
             <h3>Boletim Diário de Aplicação</h3>
@@ -165,18 +202,18 @@
                 </div>
                 <hr>
                 <div class="form-row">
-                    <div class="form-group"><label>Vol. Inicial (ml)</label><input type="number" step="any" id="bulletin-vol-inicial" required></div>
-                    <div class="form-group"><label>Vol. Final (ml)</label><input type="number" step="any" id="bulletin-vol-final" required></div>
+                    <div class="form-group"><label>Vol. Inicial (ml)</label><input type="number" id="bulletin-vol-inicial" required></div>
+                    <div class="form-group"><label>Vol. Final (ml)</label><input type="number" id="bulletin-vol-final" required></div>
                     <div class="form-group"><label>Consumo (ml)</label><input type="number" id="bulletin-consumo" readonly></div>
                 </div>
                 <hr>
                 <div class="form-row">
                     <div class="form-group"><label>Início (HH:MM)</label><input type="time" id="bulletin-hora-inicio" required></div>
-                    <div class="form-group"><label>Temp. Início (°C)</label><input type="number" step="any" id="bulletin-temp-inicio" required></div>
+                    <div class="form-group"><label>Temp. Início (°C)</label><input type="number" id="bulletin-temp-inicio" required></div>
                 </div>
                 <div class="form-row">
                     <div class="form-group"><label>Término (HH:MM)</label><input type="time" id="bulletin-hora-termino" required></div>
-                    <div class="form-group"><label>Temp. Término (°C)</label><input type="number" step="any" id="bulletin-temp-termino" required></div>
+                    <div class="form-group"><label>Temp. Término (°C)</label><input type="number" id="bulletin-temp-termino" required></div>
                 </div>
                 <div class="form-row">
                     <div class="form-group"><label>Interrupção (HH:MM)</label><input type="time" id="bulletin-interrupcao" value="00:00" required></div>
@@ -184,17 +221,17 @@
                 </div>
                 <hr>
                 <div class="form-row">
-                    <div class="form-group"><label>Odômetro Início (km)</label><input type="number" step="any" id="bulletin-odo-inicio" required></div>
-                    <div class="form-group"><label>Odômetro Término (km)</label><input type="number" step="any" id="bulletin-odo-termino" required></div>
+                    <div class="form-group"><label>Odômetro Início (km)</label><input type="number" id="bulletin-odo-inicio" required></div>
+                    <div class="form-group"><label>Odômetro Término (km)</label><input type="number" id="bulletin-odo-termino" required></div>
                     <div class="form-group"><label>Km Rodado</label><input type="number" id="bulletin-km-rodado" readonly></div>
                 </div>
                 <hr>
                 <div class="form-group">
                     <label>Ocorrências</label>
                     <div class="checkbox-group">
-                        <label><input type="checkbox" name="ocorrencia" value="Recusa de moradores"> Recusa de moradores</label>
-                        <label><input type="checkbox" name="ocorrencia" value="Quebra de viatura"> Quebra de viatura</label>
-                        <label><input type="checkbox" name="ocorrencia" value="Quebra do atomizador"> Quebra do atomizador</label>
+                        <label><input type="checkbox" name="ocorrencia" value="Recusa de moradores"> Recusa</label>
+                        <label><input type="checkbox" name="ocorrencia" value="Quebra de viatura"> Viatura</label>
+                        <label><input type="checkbox" name="ocorrencia" value="Quebra do atomizador"> Atomizador</label>
                         <label><input type="checkbox" name="ocorrencia" value="Vento"> Vento</label>
                         <label><input type="checkbox" name="ocorrencia" value="Chuva"> Chuva</label>
                     </div>
@@ -203,7 +240,7 @@
                     <label for="bulletin-obs">Observação</label>
                     <textarea id="bulletin-obs" rows="3"></textarea>
                 </div>
-                <button type="submit" style="background-color: #28a745;">Enviar Boletim</button>
+                <button type="submit">Enviar Boletim</button>
             </form>
         </div>
     </div>
