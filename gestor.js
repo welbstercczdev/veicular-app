@@ -77,13 +77,18 @@ activitiesTableBody.addEventListener('click', async (e) => {
     const activityCycle = target.dataset.ciclo;
     if (!activityId || !activityCycle) return;
     if (target.classList.contains('btn-delete')) {
-        if (confirm(`Tem certeza que deseja excluir a atividade ${activityId} (${activityCycle})?`)) {
+        const result = await Swal.fire({
+            title: 'Tem certeza?', text: `A atividade ${activityId} (${activityCycle}) será excluída.`,
+            icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6', confirmButtonText: 'Sim, excluir!', cancelButtonText: 'Cancelar'
+        });
+        if (result.isConfirmed) {
             try {
                 const payload = { action: 'deleteActivity', id_atividade: activityId, ciclo: activityCycle };
                 await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-                alert(`Solicitação para excluir a atividade ${activityId} (${activityCycle}) foi enviada.`);
+                Swal.fire('Excluído!', `A solicitação para excluir foi enviada.`, 'success');
                 openManageModal();
-            } catch (err) { alert("Erro de rede ao tentar excluir."); }
+            } catch (err) { Swal.fire('Erro!', 'Não foi possível excluir.', 'error'); }
         }
     }
     if (target.classList.contains('btn-edit')) {
@@ -117,8 +122,8 @@ activitiesTableBody.addEventListener('click', async (e) => {
             } else { if (quadrasLayer) map.removeLayer(quadrasLayer); }
             updateSidebar();
             closeModal();
-            alert(`Atividade ${activityId} (${activityCycle}) carregada para edição.`);
-        } catch (err) { alert("Erro ao carregar detalhes: " + err.message); }
+            Swal.fire({ icon: 'info', title: 'Atividade Carregada', text: `Dados da atividade ${activityId} carregados para edição.`, toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+        } catch (err) { Swal.fire('Erro!', `Não foi possível carregar os detalhes: ${err.message}`, 'error'); }
     }
 });
 
@@ -233,7 +238,7 @@ historyTableBody.addEventListener('click', async (e) => {
             if (quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
             updateSidebarWithCustomData(workedQuadrasMap);
         } catch (err) {
-            alert("Erro ao carregar o mapa da atividade: " + err.message);
+            Swal.fire({ icon: 'error', title: 'Erro ao Visualizar', text: err.message });
         }
     }
 });
@@ -328,7 +333,6 @@ document.getElementById('bairros-selecionados-container').addEventListener('clic
     }
 });
 
-// --- FUNÇÃO CORRIGIDA ---
 async function popularDadosIniciais() {
     try {
         const [agentesRes, bairrosRes, imoveisRes] = await Promise.all([
@@ -356,10 +360,9 @@ async function popularDadosIniciais() {
         document.getElementById('bairro-input').placeholder = "Digite para buscar...";
 
     } catch(e) { 
-        alert("Erro ao carregar dados iniciais: " + e.message); 
+        Swal.fire({ icon: 'error', title: 'Erro Crítico', text: 'Não foi possível carregar os dados iniciais: ' + e.message });
     }
 }
-
 
 areaSelector.addEventListener('change', async (e) => {
     const areaId = e.target.value; if (!areaId) return; if (quadrasLayer) map.removeLayer(quadrasLayer);
@@ -369,7 +372,7 @@ areaSelector.addEventListener('change', async (e) => {
         const quadrasGeoJSON = await quadrasResponse.json();
         quadrasLayer = L.geoJSON(quadrasGeoJSON, { style: getStyleForFeature, onEachFeature: onEachFeature }).addTo(map);
         if(quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
-    } catch (error) { alert(`Erro ao carregar dados da área: ${error.message}`); }
+    } catch (error) { Swal.fire({ icon: 'error', title: 'Erro', text: `Erro ao carregar dados da área: ${error.message}` }); }
 });
 
 document.getElementById('save-activity').addEventListener('click', async () => {
@@ -386,11 +389,11 @@ document.getElementById('save-activity').addEventListener('click', async () => {
         quadras: Array.from(selectedQuadras.values())
     };
     if (!payload.id_atividade || payload.ciclos.length === 0 || !payload.veiculo || !payload.produto || !payload.bairros || !payload.motorista || !payload.operador || payload.quadras.length === 0) {
-        alert("Preencha todos os campos, incluindo ciclo, bairro e quadras."); return;
+        Swal.fire({ icon: 'warning', title: 'Campos Incompletos', text: 'Preencha todos os campos, incluindo ciclo, bairro e quadras.' }); return;
     }
     try {
         await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-        alert("Atividade(s) enviada(s) para salvamento!");
+        Swal.fire({ icon: 'success', title: 'Sucesso!', text: 'Atividade(s) enviada(s) para salvamento!', timer: 2000, showConfirmButton: false });
         document.getElementById('atividade-id').value = '';
         document.querySelectorAll('input[name="ciclo"]:checked').forEach(cb => cb.checked = false);
         document.getElementById('veiculo-select').value = '';
@@ -403,7 +406,7 @@ document.getElementById('save-activity').addEventListener('click', async () => {
         if (quadrasLayer) quadrasLayer.setStyle(getStyleForFeature);
         updateSidebar();
     } catch (error) {
-        alert("Falha grave de rede.");
+        Swal.fire({ icon: 'error', title: 'Erro de Rede', text: 'Falha grave ao enviar a atividade.' });
     }
 });
 

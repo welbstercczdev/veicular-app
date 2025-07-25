@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestor de Atividades</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    <!-- ADICIONA O CSS DO SWEETALERT2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -94,7 +96,7 @@
     </div>
     <div id="map"></div>
 
-    <!-- Estrutura da Janela Modal ATUALIZADA -->
+    <!-- Estrutura da Janela Modal -->
     <div id="manage-modal" class="modal-overlay" style="display: none;">
         <div class="modal">
             <button class="modal-close">×</button>
@@ -132,7 +134,7 @@
                             <th>Data Finalização</th>
                             <th>Viatura</th>
                             <th>Ocorrências</th>
-                            <th>Mapa</th> <!-- Nova Coluna -->
+                            <th>Mapa</th>
                         </tr>
                     </thead>
                     <tbody id="history-table-body">
@@ -143,7 +145,10 @@
         </div>
     </div>
 
+    <!-- Scripts carregados no final -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <!-- ADICIONA O JAVASCRIPT DO SWEETALERT2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <script src="gestor.js"></script>
 </body>
 </html>
