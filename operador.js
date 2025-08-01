@@ -1,13 +1,9 @@
-// Registra o Service Worker para habilitar as funcionalidades offline (PWA)
+// Registra o Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./service-worker.js')
-      .then(registration => {
-        console.log('Service Worker registrado com sucesso:', registration);
-      })
-      .catch(error => {
-        console.log('Falha ao registrar Service Worker:', error);
-      });
+      .then(reg => console.log('Service Worker registrado:', reg))
+      .catch(err => console.log('Falha ao registrar SW:', err));
   });
 }
 
@@ -39,11 +35,15 @@ const bulletinModal = document.getElementById('bulletin-modal');
 const bulletinForm = document.getElementById('bulletin-form');
 const finishBtn = document.getElementById('finish-btn');
 const closeBulletinBtn = bulletinModal.querySelector('.modal-close');
+const camposParaSalvar = [
+    'bulletin-patrimonio', 'bulletin-vol-inicial', 'bulletin-vol-final', 'bulletin-consumo-gasolina',
+    'bulletin-hora-inicio', 'bulletin-temp-inicio', 'bulletin-hora-termino', 'bulletin-temp-termino',
+    'bulletin-interrupcao', 'bulletin-odo-inicio', 'bulletin-odo-termino', 'bulletin-obs'
+];
 
 function getQuadraId(feature) { if (feature.properties && feature.properties.title) try { return parseInt(feature.properties.title.replace('QUADRA:', '').trim(), 10); } catch (e) { return null; } return null; }
 function getAreaId(feature) { if (feature.properties && feature.properties.description) try { return parseInt(feature.properties.description.replace('ÁREA:', '').trim(), 10); } catch (e) { return null; } return null; }
 function getColorForArea(areaId) { if (!areaId) return '#777'; const hue = (areaId * 137.508) % 360; return `hsl(${hue}, 80%, 50%)`; }
-
 function getStyle(feature) {
     const id = getQuadraId(feature); const areaId = getAreaId(feature);
     if (id === null || areaId === null) return { opacity: 0, fillOpacity: 0 };
@@ -71,33 +71,42 @@ async function updateSyncBadge() {
 
 async function clearPendingUpdates() {
     if (!db) return;
-    const { isConfirmed } = await Swal.fire({
-        title: 'Limpar Alterações?',
-        text: "Todas as alterações não enviadas serão perdidas. O mapa será recarregado.",
+
+    const result = await Swal.fire({
+        title: 'Você tem certeza?',
+        text: "Esta ação limpará todas as alterações pendentes e recarregará o mapa. Você não poderá reverter isso!",
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sim, limpar!',
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sim, limpar tudo!',
         cancelButtonText: 'Cancelar'
     });
 
-    if (isConfirmed) {
+    if (result.isConfirmed) {
         const transaction = db.transaction(['sync_queue'], 'readwrite');
         const store = transaction.objectStore('sync_queue');
         const clearRequest = store.clear();
         clearRequest.onsuccess = () => {
-            console.log("Fila de sincronização local foi limpa.");
+            console.log("Fila de sincronização limpa.");
             updateSyncBadge();
-            if (currentActivityId) {
-                carregarAtividade(); // Recarrega para reverter as mudanças visuais no mapa
-            }
+            if (currentActivityId) carregarAtividade();
+            Swal.fire(
+                'Limpo!',
+                'Suas alterações pendentes foram removidas.',
+                'success'
+            );
         };
         clearRequest.onerror = (e) => {
-            Swal.fire('Erro!', 'Não foi possível limpar as alterações pendentes.', 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro!',
+                text: 'Não foi possível limpar as alterações pendentes: ' + e.target.error
+            });
         };
     }
 }
+
 
 window.atualizarStatusQuadra = async function(id, areaId, novoStatus) {
     const compositeKey = `${areaId}-${id}`;
@@ -106,7 +115,11 @@ window.atualizarStatusQuadra = async function(id, areaId, novoStatus) {
     if (quadrasLayer) quadrasLayer.setStyle(getStyle);
     updateProgressCounter();
     if (!db) {
-        Swal.fire({ icon: 'error', title: 'Erro Crítico', text: 'Banco de dados local não está disponível.' });
+        Swal.fire({
+            icon: 'error',
+            title: 'Erro de Conexão',
+            text: 'O banco de dados local não está disponível. A alteração não foi salva.'
+        });
         activityStatus[compositeKey] = statusAnterior;
         if (quadrasLayer) quadrasLayer.setStyle(getStyle);
         updateProgressCounter();
@@ -117,7 +130,11 @@ window.atualizarStatusQuadra = async function(id, areaId, novoStatus) {
     store.put({ id_sync: `${currentActivityId}-${currentActivityCycle}-${id}`, id_atividade: currentActivityId, ciclo: currentActivityCycle, id_quadra: id, status: novoStatus });
     transaction.oncomplete = () => { console.log(`Quadra ${compositeKey} na fila.`); updateSyncBadge(); };
     transaction.onerror = () => {
-        Swal.fire({ icon: 'error', title: 'Erro', text: 'Não foi possível salvar a alteração localmente.' });
+        Swal.fire({
+            icon: 'error',
+            title: 'Erro ao Salvar',
+            text: 'Não foi possível salvar a alteração localmente.'
+        });
         activityStatus[compositeKey] = statusAnterior;
         if (quadrasLayer) quadrasLayer.setStyle(getStyle);
         updateProgressCounter();
@@ -142,7 +159,11 @@ async function syncOfflineUpdates() {
     if (isSyncing) return false;
     updateStatusIndicator();
     if (!navigator.onLine) {
-        Swal.fire({ icon: 'info', title: 'Você está Offline', text: 'Conecte-se à internet para enviar os dados.' });
+        Swal.fire({
+            icon: 'warning',
+            title: 'Você está Offline',
+            text: 'Conecte-se à internet para enviar os dados.'
+        });
         return false;
     }
     if (!db) return false;
@@ -153,8 +174,7 @@ async function syncOfflineUpdates() {
         allUpdatesRequest.onsuccess = async () => {
             const updates = allUpdatesRequest.result;
             if (updates.length === 0) { resolve(true); return; }
-            isSyncing = true; syncBtn.disabled = true; syncBtn.classList.add('syncing');
-            updateStatusIndicator(true);
+            isSyncing = true; syncBtn.disabled = true; syncBtn.classList.add('syncing'); updateStatusIndicator(true);
             const promises = updates.map(upd => fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateStatus', id_atividade: upd.id_atividade, ciclo: upd.ciclo, id_quadra: upd.id_quadra, status: upd.status }) }));
             try {
                 await Promise.all(promises);
@@ -163,11 +183,14 @@ async function syncOfflineUpdates() {
                 clearTransaction.oncomplete = () => { updateSyncBadge(); };
                 resolve(true);
             } catch (error) {
-                Swal.fire({ icon: 'error', title: 'Falha na Sincronização', text: 'Verifique sua conexão e tente novamente.' });
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Falha na Sincronização',
+                    text: 'Verifique sua conexão e tente novamente.'
+                });
                 resolve(false);
             } finally {
-                isSyncing = false; syncBtn.disabled = false; syncBtn.classList.remove('syncing');
-                updateStatusIndicator();
+                isSyncing = false; syncBtn.disabled = false; syncBtn.classList.remove('syncing'); updateStatusIndicator();
             }
         };
         allUpdatesRequest.onerror = () => resolve(false);
@@ -200,12 +223,14 @@ async function carregarAtividade() {
         url.searchParams.append('id_atividade', currentActivityId);
         url.searchParams.append('ciclo', currentActivityCycle);
         const response = await fetch(url);
-        if (!response.ok) throw new Error(`Erro de rede: ${response.statusText}`);
         const result = await response.json(); if (!result.success) throw new Error(result.message);
         activityStatus = result.data.quadras;
         const areasParaCarregar = result.data.areas;
         const quadrasDaAtividade = Object.keys(activityStatus);
-        if (areasParaCarregar.length === 0) { Swal.fire('Aviso', 'Nenhuma quadra encontrada para esta atividade.', 'info'); map.closePopup(loadingPopup); updateProgressCounter(); return; }
+        if (areasParaCarregar.length === 0) {
+             Swal.fire({ icon: 'info', title: 'Atividade Vazia', text: 'Nenhuma quadra para esta atividade.' });
+             map.closePopup(loadingPopup); updateProgressCounter(); return;
+        }
         const allFeatures = [];
         for (const areaId of areasParaCarregar) {
             try {
@@ -216,14 +241,18 @@ async function carregarAtividade() {
                 allFeatures.push(...featuresFiltradas);
             } catch(e) { console.error(`Erro ao processar Área ${areaId}:`, e); }
         }
-        map.closePopup(loadingPopup); if(allFeatures.length === 0) { Swal.fire('Atenção', 'As quadras desta atividade não foram encontradas nos arquivos de mapa.', 'warning'); updateProgressCounter(); return; }
+        map.closePopup(loadingPopup); if(allFeatures.length === 0) {
+            Swal.fire({ icon: 'warning', title: 'Mapa Incompleto', text: 'As quadras não foram encontradas nos arquivos de mapa.' });
+            updateProgressCounter(); return;
+        }
         const featureCollection = { type: "FeatureCollection", features: allFeatures };
         quadrasLayer = L.geoJSON(featureCollection, { style: getStyle, onEachFeature: onEachFeature }).addTo(map);
         if (quadrasLayer.getBounds().isValid()) map.fitBounds(quadrasLayer.getBounds());
         updateProgressCounter();
         finishBtn.style.display = 'flex';
     } catch(error) {
-        map.closePopup(loadingPopup); Swal.fire({ icon: 'error', title: 'Falha ao Carregar', text: error.message });
+        map.closePopup(loadingPopup);
+        Swal.fire({ icon: 'error', title: 'Falha ao Carregar', text: `Não foi possível carregar a atividade: ${error.message}` });
         document.getElementById('progress-container').style.display = 'none';
     }
 }
@@ -254,7 +283,7 @@ async function popularAtividadesPendentes() {
         }
     } catch(error) {
         seletor.innerHTML = '<option value="">Erro ao carregar</option>';
-        Swal.fire({ icon: 'error', title: 'Erro de Conexão', text: 'Não foi possível buscar a lista de atividades: ' + error.message });
+        Swal.fire({ icon: 'error', title: 'Erro de Rede', text: 'Não foi possível buscar a lista de atividades: ' + error.message });
     }
 }
 
@@ -272,17 +301,45 @@ function minutesToTime(totalMinutes) { if (isNaN(totalMinutes) || totalMinutes <
 function setupBulletinCalculations() {
     const fields = {
         volInicial: document.getElementById('bulletin-vol-inicial'), volFinal: document.getElementById('bulletin-vol-final'), consumo: document.getElementById('bulletin-consumo'),
-        horaInicio: document.getElementById('bulletin-hora-inicio'), horaTermino: document.getElementById('bulletin-hora-termino'), interrupcao: document.getElementById('bulletin-interrupcao'),
-        tempoTotal: document.getElementById('bulletin-tempo-total'), odoInicio: document.getElementById('bulletin-odo-inicio'), odoTermino: document.getElementById('bulletin-odo-termino'),
-        kmRodado: document.getElementById('bulletin-km-rodado')
+        horaInicio: document.getElementById('bulletin-hora-inicio'), horaTermino: document.getElementById('bulletin-hora-termino'), interrupcao: document.getElementById('bulletin-interrupcao'), tempoTotal: document.getElementById('bulletin-tempo-total'),
+        odoInicio: document.getElementById('bulletin-odo-inicio'), odoTermino: document.getElementById('bulletin-odo-termino'), kmRodado: document.getElementById('bulletin-km-rodado')
     };
     const update = () => {
         fields.consumo.value = Math.max(0, (parseFloat(fields.volInicial.value) || 0) - (parseFloat(fields.volFinal.value) || 0));
         const duracao = Math.max(0, timeToMinutes(fields.horaTermino.value) - timeToMinutes(fields.horaInicio.value));
-        fields.tempoTotal.value = minutesToTime(duracao + timeToMinutes(fields.interrupcao.value));
+        fields.tempoTotal.value = minutesToTime(duracao - timeToMinutes(fields.interrupcao.value)); // Correção: interrupção deve subtrair
         fields.kmRodado.value = Math.max(0, (parseFloat(fields.odoTermino.value) || 0) - (parseFloat(fields.odoInicio.value) || 0));
     };
-    Object.values(fields).forEach(el => el.addEventListener('input', update));
+    Object.values(fields).forEach(el => { if (el) el.addEventListener('input', update); });
+}
+
+function salvarRascunhoBoletim() {
+    if (!currentActivityId || !currentActivityCycle) return;
+    const rascunho = {};
+    camposParaSalvar.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) rascunho[id] = element.value;
+    });
+    rascunho.ocorrencias = Array.from(document.querySelectorAll('input[name="ocorrencia"]:checked')).map(cb => cb.value);
+    const rascunhoKey = `rascunhoBoletim_${currentActivityId}_${currentActivityCycle}`;
+    localStorage.setItem(rascunhoKey, JSON.stringify(rascunho));
+}
+
+function carregarRascunhoBoletim() {
+    if (!currentActivityId || !currentActivityCycle) return;
+    const rascunhoKey = `rascunhoBoletim_${currentActivityId}_${currentActivityCycle}`;
+    const rascunhoSalvo = localStorage.getItem(rascunhoKey);
+    if (rascunhoSalvo) {
+        const rascunho = JSON.parse(rascunhoSalvo);
+        camposParaSalvar.forEach(id => {
+            const element = document.getElementById(id);
+            if (element && typeof rascunho[id] !== 'undefined') element.value = rascunho[id];
+        });
+        document.querySelectorAll('input[name="ocorrencia"]').forEach(cb => {
+            cb.checked = rascunho.ocorrencias && rascunho.ocorrencias.includes(cb.value);
+        });
+        document.getElementById('bulletin-vol-inicial').dispatchEvent(new Event('input'));
+    }
 }
 
 function openBulletinModal() {
@@ -290,6 +347,7 @@ function openBulletinModal() {
     document.getElementById('bulletin-data').value = new Date().toLocaleDateString('pt-BR');
     document.getElementById('bulletin-viatura').value = currentActivityData.veiculo || '';
     document.getElementById('bulletin-inseticida').value = currentActivityData.produto || '';
+    carregarRascunhoBoletim();
     bulletinModal.style.display = 'flex';
 }
 
@@ -304,19 +362,31 @@ bulletinForm.addEventListener('submit', async (e) => {
     submitButton.textContent = 'Sincronizando quadras...';
     const quadrasSincronizadas = await syncOfflineUpdates();
     if (!quadrasSincronizadas) {
-        Swal.fire({ icon: 'error', title: 'Falha na Sincronização', text: 'Não foi possível sincronizar. O boletim não foi enviado.' });
-        submitButton.disabled = false; submitButton.textContent = 'Enviar Boletim';
-        return;
+        Swal.fire({
+            icon: 'error',
+            title: 'Envio Interrompido',
+            text: 'A sincronização das quadras falhou. O boletim não foi enviado.'
+        });
+        submitButton.disabled = false; submitButton.textContent = 'Enviar Boletim'; return;
     }
     submitButton.textContent = 'Enviando boletim...';
     const payload = {
         action: 'submitBulletin', id_atividade: currentActivityId, ciclo: currentActivityCycle,
-        patrimonio: document.getElementById('bulletin-patrimonio').value, viatura: document.getElementById('bulletin-viatura').value,
-        inseticida: document.getElementById('bulletin-inseticida').value, vol_inicial: document.getElementById('bulletin-vol-inicial').value,
-        vol_final: document.getElementById('bulletin-vol-final').value, consumo: document.getElementById('bulletin-consumo').value,
-        hora_inicio: document.getElementById('bulletin-hora-inicio').value, temp_inicio: document.getElementById('bulletin-temp-inicio').value,
-        hora_termino: document.getElementById('bulletin-hora-termino').value, temp_termino: document.getElementById('bulletin-temp-termino').value,
-        tempo_interrupcao: document.getElementById('bulletin-interrupcao').value, tempo_aplicacao: document.getElementById('bulletin-tempo-total').value,
+        patrimonio: document.getElementById('bulletin-patrimonio').value,
+        viatura: document.getElementById('bulletin-viatura').value,
+        inseticida: document.getElementById('bulletin-inseticida').value,
+        vol_inicial: document.getElementById('bulletin-vol-inicial').value,
+        vol_final: document.getElementById('bulletin-vol-final').value,
+        consumo: document.getElementById('bulletin-consumo').value,
+        consumo_gasolina: document.getElementById('bulletin-consumo-gasolina').value,
+        hora_inicio: document.getElementById('bulletin-hora-inicio').value,
+        temp_inicio: document.getElementById('bulletin-temp-inicio').value,
+        hora_termino: document.getElementById('bulletin-hora-termino').value,
+        temp_termino: document.getElementById('bulletin-temp-termino').value,
+        tempo_interrupcao: document.getElementById('bulletin-interrupcao').value,
+        tempo_aplicacao: document.getElementById('bulletin-tempo-total').value,
+        odo_inicio: document.getElementById('bulletin-odo-inicio').value,
+        odo_termino: document.getElementById('bulletin-odo-termino').value,
         km_rodado: document.getElementById('bulletin-km-rodado').value,
         ocorrencias: Array.from(document.querySelectorAll('input[name="ocorrencia"]:checked')).map(cb => cb.value).join(', '),
         observacao: document.getElementById('bulletin-obs').value
@@ -324,17 +394,23 @@ bulletinForm.addEventListener('submit', async (e) => {
     try {
         await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
         Swal.fire({ icon: 'success', title: 'Sucesso!', text: 'Boletim enviado com sucesso!' });
+        localStorage.removeItem(`rascunhoBoletim_${currentActivityId}_${currentActivityCycle}`);
         closeBulletinModal();
         popularAtividadesPendentes();
         if (quadrasLayer) map.removeLayer(quadrasLayer);
         document.getElementById('progress-container').style.display = 'none';
         finishBtn.style.display = 'none';
     } catch (error) {
-        Swal.fire({ icon: 'error', title: 'Erro de Rede', text: 'As quadras foram salvas, mas houve um erro ao enviar o boletim.' });
+        Swal.fire({
+            icon: 'warning',
+            title: 'Envio Parcial',
+            text: 'As quadras foram salvas, mas houve um erro ao enviar o boletim. Tente sincronizar novamente mais tarde.'
+        });
     } finally {
         submitButton.disabled = false; submitButton.textContent = 'Enviar Boletim';
     }
 });
+
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -342,7 +418,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         finishBtn.addEventListener('click', openBulletinModal);
         closeBulletinBtn.addEventListener('click', closeBulletinModal);
         window.addEventListener('click', e => { if (e.target === bulletinModal) closeBulletinModal(); });
-        document.getElementById('atividade-select').addEventListener('change', () => {});
         document.getElementById('sync-btn').addEventListener('click', syncOfflineUpdates);
         document.getElementById('clear-btn').addEventListener('click', clearPendingUpdates);
         window.addEventListener('online', syncOfflineUpdates);
@@ -362,11 +437,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         function handleLocationError(error) {
+            console.error("Erro de Geolocalização:", error);
+            Swal.fire({ icon: 'error', title: 'Erro de Geolocalização', text: 'Não foi possível obter sua localização.' });
             stopTracking();
-            Swal.fire({ icon: 'error', title: 'Erro de GPS', text: 'Não foi possível obter sua localização contínua.' });
         }
         function startTracking() {
-            if (!navigator.geolocation) return Swal.fire({ icon: 'error', title: 'Oops...', text: 'Geolocalização não é suportada.' });
+            if (!navigator.geolocation) {
+                return Swal.fire({
+                    icon: 'error',
+                    title: 'Recurso Indisponível',
+                    text: 'A geolocalização não é suportada pelo seu navegador.'
+                });
+            }
             trackBtn.classList.add('tracking');
             trackBtn.title = "Parar Rastreamento";
             watchId = navigator.geolocation.watchPosition(handleLocationUpdate, handleLocationError, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
@@ -377,15 +459,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             trackBtn.classList.remove('tracking');
             trackBtn.title = "Iniciar Rastreamento";
         }
-        trackBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (watchId !== null) { stopTracking(); } else { startTracking(); }
-        });
+        trackBtn.addEventListener('click', (e) => { e.preventDefault(); if (watchId !== null) { stopTracking(); } else { startTracking(); } });
         setupBulletinCalculations();
+        bulletinForm.addEventListener('input', salvarRascunhoBoletim);
         await popularAtividadesPendentes();
         updateStatusIndicator();
         await updateSyncBadge();
     } catch (error) {
-        Swal.fire({ icon: 'error', title: 'Falha na Inicialização', text: 'Não foi possível iniciar o banco de dados local. O modo offline não funcionará.' });
+        Swal.fire({ icon: 'error', title: 'Erro Crítico', text: 'Falha na inicialização da aplicação: ' + error.message });
     }
 });
