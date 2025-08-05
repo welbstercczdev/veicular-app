@@ -1,20 +1,23 @@
 {
-  "name": "Mapa de Trabalho",
-  "short_name": "Mapa Trab",
-  "start_url": ".",
+  "name": "Aplicação Veicular",
+  "short_name": "App Veicular",
+  "description": "Gerenciamento e controle de rotas e atividades de aplicação veicular em tempo real.",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#007bff",
+  "background_color": "#f4f7f6",
+  "theme_color": "#1976d2",
   "icons": [
     {
       "src": "icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

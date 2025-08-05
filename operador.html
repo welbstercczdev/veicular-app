@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Operador - Mapa de Trabalho</title>
-    
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
-    <!-- Adiciona o CSS do SweetAlert2 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     
     <style>
@@ -19,6 +18,15 @@
         #map { 
             height: 100vh; width: 100vw; 
             background-color: #f0f2f5;
+        }
+        button {
+            cursor: pointer;
+            border-radius: 4px;
+            border: none;
+            transition: background-color 0.2s, opacity 0.2s;
+        }
+        button:hover {
+            opacity: 0.9;
         }
         
         /* --- PAINEL DE CONTROLE SUPERIOR --- */
@@ -60,6 +68,16 @@
             font-size: 14px;
             background-color: #f9f9f9;
         }
+        .user-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .user-actions button {
+            padding: 6px 12px;
+            font-size: 12px;
+            background-color: #6c757d;
+            color: white;
+        }
         #progress-counter {
             font-weight: bold;
             font-size: 16px;
@@ -81,7 +99,7 @@
             background-color: #fff; color: #333; border-radius: 50%;
             border: 1px solid #ddd; display: flex;
             justify-content: center; align-items: center;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.1); cursor: pointer;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
             transition: all 0.2s ease;
         }
         .action-btn:hover { background-color: #f0f0f0; }
@@ -125,29 +143,39 @@
             transition: transform 0.5s ease-out;
         }
         
-        /* --- ESTILOS DO MODAL DO BOLETIM --- */
+        /* --- ESTILOS DO MODAL --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-color: rgba(0, 0, 0, 0.7); display: none;
             justify-content: center; align-items: center; z-index: 10000;
         }
-        .modal-content {
-            background-color: white; padding: 20px; border-radius: 8px;
+        .modal {
+            background-color: white; padding: 25px; border-radius: 8px;
             width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto;
-            position: relative;
+            position: relative; display: flex; flex-direction: column;
         }
         .modal-close {
             position: absolute; top: 10px; right: 15px; background: none;
-            border: none; font-size: 24px; cursor: pointer; color: #888;
+            border: none; font-size: 28px; cursor: pointer; color: #888;
         }
-        .modal-content h3 { margin-top: 0; }
-        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
-        .form-group { flex: 1; }
+        .modal h3 { margin-top: 0; color: #333; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .form-group { flex: 1; margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
-        .form-group input, .form-group textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 8px; box-sizing: border-box; 
+            border: 1px solid #ccc; border-radius: 4px;
+        }
         .form-group input[readonly] { background-color: #e9ecef; }
         .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
         .checkbox-group label { font-weight: normal; }
+        .modal button[type="submit"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            background-color: #28a745;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -166,6 +194,10 @@
             <label>Progresso:</label>
             <span id="progress-counter">0 / 0</span>
         </div>
+        <div class="user-actions">
+           <button id="change-password-btn">Alterar Senha</button>
+           <button id="logout-btn-op">Sair</button>
+       </div>
     </div>
 
     <!-- Painel de Ações Inferior -->
@@ -190,7 +222,7 @@
     
     <!-- Modal do Boletim -->
     <div id="bulletin-modal" class="modal-overlay">
-        <div class="modal-content">
+        <div class="modal">
             <button class="modal-close">×</button>
             <h3>Boletim Diário de Aplicação</h3>
             <form id="bulletin-form">
@@ -202,25 +234,17 @@
                     <div class="form-group"><label>Viatura</label><input type="text" id="bulletin-viatura" readonly></div>
                     <div class="form-group"><label>Inseticida</label><input type="text" id="bulletin-inseticida" readonly></div>
                 </div>
-                <hr>
-                <!-- LINHA ATUALIZADA COM OS 3 CAMPOS DE CONSUMO -->
+                <hr style="margin: 15px 0;">
                 <div class="form-row">
                     <div class="form-group"><label>Vol. Inicial (ml)</label><input type="number" id="bulletin-vol-inicial" required></div>
                     <div class="form-group"><label>Vol. Final (ml)</label><input type="number" id="bulletin-vol-final" required></div>
                     <div class="form-group"><label>Consumo (ml)</label><input type="number" id="bulletin-consumo" readonly></div>
                 </div>
-                
-                <!-- O CAMPO DE GASOLINA FOI MOVIDO PARA A LINHA ABAIXO -->
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Consumo Gasolina(ml)</label>
-                        <input type="number" id="bulletin-consumo-gasolina" required>
-                    </div>
-                    <!-- Adicionamos divs vazios para ocupar o espaço restante -->
-                    <div class="form-group"></div>
-                    <div class="form-group"></div>
+                    <div class="form-group"><label>Consumo Gasolina (ml)</label><input type="number" id="bulletin-consumo-gasolina" required></div>
+                    <div class="form-group"></div><div class="form-group"></div>
                 </div>
-                <hr>
+                <hr style="margin: 15px 0;">
                 <div class="form-row">
                     <div class="form-group"><label>Início (HH:MM)</label><input type="time" id="bulletin-hora-inicio" required></div>
                     <div class="form-group"><label>Temp. Início (°C)</label><input type="number" id="bulletin-temp-inicio" required></div>
@@ -233,13 +257,13 @@
                     <div class="form-group"><label>Interrupção (HH:MM)</label><input type="time" id="bulletin-interrupcao" value="00:00" required></div>
                     <div class="form-group"><label>Tempo de Aplicação</label><input type="text" id="bulletin-tempo-total" readonly></div>
                 </div>
-                <hr>
+                <hr style="margin: 15px 0;">
                 <div class="form-row">
                     <div class="form-group"><label>Odômetro Início (km)</label><input type="number" id="bulletin-odo-inicio" required></div>
                     <div class="form-group"><label>Odômetro Término (km)</label><input type="number" id="bulletin-odo-termino" required></div>
                     <div class="form-group"><label>Km Rodado</label><input type="number" id="bulletin-km-rodado" readonly></div>
                 </div>
-                <hr>
+                <hr style="margin: 15px 0;">
                 <div class="form-group">
                     <label>Ocorrências</label>
                     <div class="checkbox-group">
@@ -259,7 +283,20 @@
         </div>
     </div>
     
-    <!-- Scripts -->
+    <!-- Modal de Alterar Senha -->
+    <div id="change-password-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 450px;">
+             <button class="modal-close">×</button>
+            <h3>Alterar Minha Senha</h3>
+            <form id="change-password-form">
+                <div class="form-group"><label for="current-password">Senha Atual</label><input type="password" id="current-password" required></div>
+                <div class="form-group"><label for="new-password">Nova Senha</label><input type="password" id="new-password" required></div>
+                <div class="form-group"><label for="confirm-password">Confirmar Nova Senha</label><input type="password" id="confirm-password" required></div>
+                <button type="submit">Salvar Nova Senha</button>
+            </form>
+        </div>
+    </div>
+    
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <script src="operador.js"></script>

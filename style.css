@@ -1,150 +1,369 @@
-/* Estilo geral */
+/* =================================================================== */
+/* ESTILOS GERAIS E RESET BÁSICO                                       */
+/* =================================================================== */
 body { 
-    font-family: sans-serif; 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     display: flex; 
     height: 100vh; 
     margin: 0; 
     overflow: hidden; /* Impede a rolagem do corpo principal */
+    background-color: #f0f2f5;
 }
+
+button {
+    cursor: pointer;
+    border-radius: 4px;
+    border: none;
+    transition: background-color 0.2s, opacity 0.2s;
+    font-family: inherit;
+}
+button:hover {
+    opacity: 0.9;
+}
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    margin: 15px 0;
+}
+
+/* =================================================================== */
+/* LAYOUT PRINCIPAL (MAPA E SIDEBAR DO GESTOR)                         */
+/* =================================================================== */
 #map { 
     flex-grow: 1; 
     height: 100%; 
 }
 
-/* --- LÓGICA DE LAYOUT SIMPLIFICADA E ROBUSTA --- */
 #sidebar {
-    width: 350px;
+    width: 380px;
+    min-width: 380px;
     height: 100vh;
-    padding: 15px;
+    padding: 20px;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-    overflow-y: auto; /* A barra lateral inteira terá scroll se o conteúdo for muito grande */
+    background-color: #ffffff;
+    overflow-y: auto; 
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
 }
 
-/* Define uma altura máxima para a lista de quadras */
-#quadras-container {
-    max-height: 250px; /* Ajuste este valor conforme sua preferência */
-    overflow-y: auto; /* Adiciona scroll APENAS na lista de quadras */
+/* =================================================================== */
+/* COMPONENTES DA SIDEBAR (GESTOR)                                     */
+/* =================================================================== */
+
+/* --- Cabeçalho do Usuário --- */
+#user-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    flex-shrink: 0;
+}
+#welcome-message {
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-grow: 1;
+}
+.user-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.user-actions button, .secondary-btn {
+    width: auto;
+    padding: 6px 12px;
+    font-size: 12px;
+    background-color: #6c757d;
+    color: white;
+}
+
+/* --- Botões de Gerenciamento --- */
+.management-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.management-buttons button {
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    font-size: 14px;
+}
+
+/* --- Formulários --- */
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #333; }
+input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="time"], input[type="number"], select { 
+    width: 100%; 
+    padding: 10px; 
+    box-sizing: border-box; 
     border: 1px solid #ccc;
-    padding: 5px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 15px; padding-top: 5px; }
+.checkbox-label { display: flex; align-items: center; gap: 5px; font-weight: normal; }
+
+/* --- Resumo da Seleção --- */
+#selection-summary {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Permite que o container encolha */
+}
+#quadras-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 8px;
     margin-top: 10px;
     border-radius: 4px;
-    min-height: 100px; /* Garante uma altura mínima mesmo vazia */
+    min-height: 120px;
 }
-
-#save-activity {
-    margin-top: 20px; /* Espaço entre a lista e o botão */
-}
-/* --- FIM DA LÓGICA DE LAYOUT --- */
-
 #quadras-list { list-style: none; padding: 0; margin: 0;}
-.form-group { margin-bottom: 15px; }
-label { display: block; margin-bottom: 5px; font-weight: bold; }
-input, select { width: 100%; padding: 8px; box-sizing: border-box; }
-button { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
-button:hover { background-color: #0056b3; }
-#quadras-list button { width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px; }
+#quadras-list li { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+#quadras-list button { 
+    width: auto; padding: 2px 8px; margin: 0; 
+    background-color: #dc3545; font-size: 12px; color: white;
+}
 
+/* --- Rodapé da Barra Lateral --- */
+#sidebar-footer {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+#sidebar-footer button {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    background-color: #28a745;
+    color: white;
+}
+
+/* =================================================================== */
+/* JANELA MODAL (SISTEMA GENÉRICO)                                     */
+/* =================================================================== */
+.modal-overlay {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: none; /* Alterado por JS para 'flex' */
+    justify-content: center; align-items: center;
+    z-index: 10000;
+}
+.modal {
+    background-color: white;
+    padding: 25px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 900px;
+    max-height: 90vh; /* Garante que o modal nunca seja maior que a tela */
+    display: flex;
+    flex-direction: column; /* Essencial para o layout interno funcionar */
+    position: relative;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+.modal-close {
+    position: absolute; top: 10px; right: 15px; background: none; border: none; 
+    font-size: 28px; cursor: pointer; padding: 0; line-height: 1; color: #888;
+}
+.modal h2, .modal h3, .modal h4 { margin-top: 0; color: #333; }
+.modal hr { width: 100%; border: none; border-top: 1px solid #eee; margin: 25px 0;}
+
+/* --- Componentes Dentro do Modal --- */
+.table-container {
+    overflow-y: auto;   /* Adiciona a barra de rolagem vertical quando necessário */
+    flex-shrink: 1;     /* Permite que o container encolha se não houver espaço */
+    min-height: 150px;  /* Garante uma altura mínima para visualização */
+}
+table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; vertical-align: middle;}
+th { background-color: #f2f2f2; font-weight: bold; }
+
+.action-buttons { display: flex; gap: 5px; flex-wrap: wrap; }
+.action-buttons button { width: auto; padding: 5px 10px; margin: 0; font-size: 12px; color: white; }
+.btn-edit { background-color: #ffc107; color: black; }
+.btn-delete, .btn-delete-user { background-color: #dc3545; }
+.btn-reset-pass { background-color: #17a2b8; }
+.btn-view-map { background-color: #007bff; }
+
+.progress-bar { width: 100%; background-color: #e9ecef; border-radius: 4px; overflow: hidden; }
+.progress-bar-fill { height: 20px; background-color: #28a745; text-align: center; color: white; line-height: 20px; font-size: 12px; }
+
+.form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+#create-user-form button, #change-password-form button, #bulletin-form button { width: 100%; padding: 10px; font-size: 15px; background-color: #007bff; color: white; margin-top: 10px; }
+
+#history-search-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#history-search-form input, #history-search-form button { padding: 8px; }
+#history-search-form button { width: auto; margin: 0; background-color: #007bff; color: white; }
+
+/* =================================================================== */
+/* COMPONENTES DA INTERFACE DO OPERADOR                                */
+/* =================================================================== */
+#controls {
+    position: fixed; top: 10px; left: 10px; right: 10px; z-index: 1001;
+    background: white; padding: 8px 15px; border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 15px; flex-wrap: wrap;
+}
+.control-group { display: flex; align-items: center; gap: 8px; }
+#controls select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; }
+
+#actions-panel {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    z-index: 1000; display: flex; gap: 15px;
+    background-color: rgba(255, 255, 255, 0.95); padding: 10px; border-radius: 30px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+.action-btn { position: relative; width: 48px; height: 48px; background-color: #fff; border-radius: 50%; border: 1px solid #ddd; display: flex; justify-content: center; align-items: center; }
+.action-btn:hover { background-color: #f0f0f0; }
+.action-btn.tracking { background-color: #007bff; color: white; }
+.action-btn svg { width: 24px; height: 24px; fill: currentColor; }
+
+#status-indicator {
+    position: fixed; bottom: 10px; left: 10px; color: white; padding: 5px 15px;
+    border-radius: 15px; font-size: 14px; z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: all 0.3s ease-in-out; opacity: 0;
+}
+#status-indicator.visible { opacity: 1; }
+#status-indicator.offline { background-color: #6c757d; }
+#status-indicator.syncing { background-color: #ffc107; color: black; }
+#status-indicator:not(.offline):not(.syncing) { background-color: #28a745; }
+
+.sync-badge {
+    position: absolute; top: -2px; right: -2px; background-color: #dc3545; color: white;
+    border-radius: 50%; width: 20px; height: 20px; font-size: 12px; font-weight: bold;
+    display: none; justify-content: center; align-items: center; border: 2px solid white;
+}
+.sync-badge.visible { display: flex; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+#sync-btn.syncing svg { animation: spin 1s linear infinite; }
+
+/* =================================================================== */
+/* CLASSES UTILITÁRIAS E HELPERS                                       */
+/* =================================================================== */
 .quadra-label {
     background-color: transparent; border: none; box-shadow: none;
     color: #FFFFFF; font-size: 14px; font-weight: bold;
     text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
 }
 
+.user-location-icon { background: transparent; border: none; text-align: center; }
+.user-location-icon svg {
+    width: 24px; height: 24px;
+    filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.5));
+    transition: transform 0.5s ease-out;
+}
+
 .autocomplete-container { position: relative; }
 .autocomplete-items {
-    position: absolute; border: 1px solid #d4d4d4;
-    z-index: 9999; top: 100%; left: 0; right: 0;
-    max-height: 200px; overflow-y: auto; background-color: #fff;
+    position: absolute; border: 1px solid #d4d4d4; z-index: 9999; 
+    top: 100%; left: 0; right: 0; max-height: 200px; 
+    overflow-y: auto; background-color: #fff;
 }
 .autocomplete-items div { padding: 10px; cursor: pointer; border-bottom: 1px solid #d4d4d4; }
 .autocomplete-items div:hover { background-color: #e9e9e9; }
 
-#bairros-selecionados-container { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; padding: 5px 0; }
+#bairros-selecionados-container { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
 .bairro-tag {
     background-color: #007bff; color: white; padding: 5px 10px;
     border-radius: 15px; font-size: 14px; display: flex; align-items: center; gap: 8px;
 }
-.bairro-tag .remove-tag { cursor: pointer; font-weight: bold; color: #e0e0e0; }
-.bairro-tag .remove-tag:hover { color: white; }
+.bairro-tag .remove-tag { cursor: pointer; font-weight: bold; }
+.bairro-tag .remove-tag:hover { color: #e0e0e0; }
 
-/* ... seus estilos existentes ... */
+/* =================================================================== */
+/* CORREÇÃO PARA SWEETALERT DENTRO DE MODAIS (VERSÃO FINAL E PRECISA)  */
+/* =================================================================== */
+/* 
+  1. Esta regra garante que o pop-up se ajuste bem em telas menores,
+     evitando que ele mesmo fique maior que o modal pai.
+*/
+.swal2-popup.swal-in-modal {
+    width: 90% !important;
+    max-width: 480px !important;
+    box-sizing: border-box;
+}
 
-/* --- ESTILOS PARA A JANELA MODAL --- */
-.modal-overlay {
-    position: fixed; top: 0; left: 0;
-    width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.6);
-    display: flex; justify-content: center; align-items: center;
-    z-index: 10000;
+/* 
+  2. ESTA É A CORREÇÃO PRINCIPAL E MAIS IMPORTANTE:
+     Forçamos o campo de input (e o contêiner onde ele vive)
+     a ocupar 100% da largura disponível DENTRO do pop-up, 
+     evitando que ele "vaze" para fora.
+*/
+.swal2-popup.swal-in-modal .swal2-html-container,
+.swal2-popup.swal-in-modal .swal2-input {
+    width: 100% !important;
+    max-width: 90% !important; /* Garante que não exceda o limite */
+    box-sizing: border-box !important; /* Impede que padding/border aumente a largura */
 }
-.modal {
-    background-color: white;
-    padding: 20px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 800px;
-    max-height: 80vh;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-}
-.modal-close {
-    position: absolute; top: 10px; right: 10px;
-    background: none; border: none; font-size: 24px;
-    cursor: pointer; padding: 0; line-height: 1;
-    color: #888;
-}
-.modal-close:hover { color: #000; }
-.table-container { overflow-y: auto; }
-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-th { background-color: #f2f2f2; }
-.progress-bar {
-    width: 100%; background-color: #e0e0e0;
-    border-radius: 4px; overflow: hidden;
-}
-.progress-bar-fill {
-    height: 20px; background-color: #4caf50;
-    text-align: center; color: white; line-height: 20px;
-    font-size: 12px;
-}
-.action-buttons button {
-    width: auto; padding: 5px 10px;
-    margin-right: 5px; font-size: 12px;
-}
-.btn-edit { background-color: #ffc107; color: black; }
-.btn-delete { background-color: #dc3545; }
-.secondary-btn { background-color: #6c757d; }
-.secondary-btn:hover { background-color: #5a6268; }
 
-.checkbox-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    padding-top: 5px;
+/* =================================================================== */
+/* ESTILO APRIMORADO PARA O BOTÃO SALVAR ATIVIDADE                     */
+/* =================================================================== */
+
+/* Remove a regra genérica anterior para focar no ID específico */
+#sidebar-footer button {
+    /* As propriedades serão definidas por #save-activity */
 }
-.checkbox-label {
+
+#save-activity {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 1.1rem;
+    font-weight: 600; /* Texto mais destacado */
+    color: white;
+    
+    /* Fundo com gradiente sutil */
+    background-color: #28a745; /* Cor base para navegadores antigos */
+    background-image: linear-gradient(to bottom, #2ebd59, #28a745);
+    
+    border: 1px solid #218838; /* Borda um pouco mais escura */
+    border-radius: 6px; /* Cantos mais suaves */
+    
+    /* Sombra para dar profundidade e destacar o botão */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    
+    cursor: pointer;
+    transition: all 0.2s ease-in-out; /* Transição suave para todos os efeitos */
+    
+    /* Alinhamento do ícone e texto */
     display: flex;
+    justify-content: center;
     align-items: center;
-    gap: 5px;
-    font-weight: normal;
+    gap: 10px; /* Espaço entre o ícone e o texto */
 }
 
-#history-search-form {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-top: 10px;
+/* Efeito ao passar o mouse: o botão "levanta" e fica mais brilhante */
+#save-activity:hover:not(:disabled) {
+    background-color: #2ebd59;
+    background-image: linear-gradient(to bottom, #34d168, #2ebd59);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
 }
-#history-search-form input {
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+
+/* Efeito ao clicar: o botão "afunda" para dar feedback tátil */
+#save-activity:active:not(:disabled) {
+    background-color: #218838;
+    background-image: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transform: translateY(1px);
 }
-#history-search-form button {
-    padding: 8px 15px;
-    width: auto;
-    margin: 0;
+
+/* Estilo para quando o botão estiver desabilitado */
+#save-activity:disabled {
+    background-color: #94dcb0;
+    background-image: none;
+    border-color: #74b889;
+    box-shadow: none;
+    cursor: not-allowed;
+    opacity: 0.7;
 }
