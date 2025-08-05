@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // --- CONSTANTES E VARIÁVEIS GLOBAIS ---
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz0gTYmaR-Pajm0LVzYl5ZXXFLQiFadzxFMrPToEpncmHZdWQ42lN_akjsZdJVf47_P/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
     let db;
     let quadrasLayer, activityStatus = {}, currentActivityData = {}, userMarker = null, watchId = null;
     let isSyncing = false;
