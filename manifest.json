@@ -3,9 +3,11 @@
   "short_name": "App Veicular",
   "description": "Gerenciamento e controle de rotas e atividades de aplicação veicular em tempo real.",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#f4f7f6",
+  "background_color": "#ffffff",
   "theme_color": "#1976d2",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "icon-192.png",
