@@ -367,3 +367,35 @@ th { background-color: #f2f2f2; font-weight: bold; }
     cursor: not-allowed;
     opacity: 0.7;
 }
+
+/* =================================================================== */
+/* ESTILO PARA O BOTÃO DE INSTALAÇÃO DO PWA                            */
+/* =================================================================== */
+
+#pwa-install-btn {
+    width: 100%;
+    margin-top: 15px; /* Espaço entre os botões */
+    padding: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1976d2; /* Cor do texto azul */
+    
+    background-color: #e3f2fd; /* Fundo azul bem claro */
+    border: 1px solid #1976d2; /* Borda azul */
+    
+    border-radius: 8px;
+    cursor: pointer;
+    
+    /* Alinhamento do ícone e texto */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    
+    transition: background-color 0.3s, transform 0.1s;
+}
+
+#pwa-install-btn:hover {
+    background-color: #bbdefb; /* Azul um pouco mais escuro ao passar o mouse */
+    transform: translateY(-1px);
+}
