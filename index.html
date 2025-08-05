@@ -49,6 +49,15 @@
                         <input type="password" id="password" required autocomplete="current-password">
                     </div>
                     <button type="submit" id="login-btn">Entrar</button>
+                     <!-- BOTÃO DE INSTALAÇÃO DO PWA (COMEÇA ESCONDIDO) -->
+                    <button type="button" id="pwa-install-btn" style="display: none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <span>Instalar Aplicativo</span>
+                    </button>
                 </form>
             </div>
         </div>
@@ -57,14 +66,49 @@
 
     <!-- SCRIPTS NO FINAL -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-    <script>
+       <script>
         document.addEventListener('DOMContentLoaded', () => {
-            sessionStorage.clear(); // Limpa sessão antiga ao carregar a página
+            sessionStorage.clear(); // Limpa sessão antiga
 
             const loginForm = document.getElementById('login-form');
             const loginBtn = document.getElementById('login-btn');
+            const installBtn = document.getElementById('pwa-install-btn');
             const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
 
+            // --- LÓGICA DO PWA ---
+            let deferredPrompt; // Variável para guardar o evento de instalação
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                // Previne que o mini-infobar apareça no Chrome
+                e.preventDefault();
+                // Guarda o evento para que possa ser acionado mais tarde.
+                deferredPrompt = e;
+                // Mostra nosso botão de instalação customizado
+                console.log('`beforeinstallprompt` foi acionado. O app pode ser instalado.');
+                installBtn.style.display = 'flex';
+            });
+
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    // Mostra o prompt de instalação
+                    deferredPrompt.prompt();
+                    // Espera o usuário responder ao prompt
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`Interação do usuário com o prompt: ${outcome}`);
+                    // Só podemos usar o prompt uma vez.
+                    deferredPrompt = null;
+                    // Esconde o botão após o uso
+                    installBtn.style.display = 'none';
+                }
+            });
+
+            window.addEventListener('appinstalled', () => {
+                console.log('PWA foi instalado com sucesso!');
+                installBtn.style.display = 'none';
+                deferredPrompt = null;
+            });
+
+            // --- LÓGICA DE LOGIN ---
             loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 loginBtn.disabled = true;
@@ -79,15 +123,12 @@
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                         body: JSON.stringify({ action: 'login', email, password })
                     });
-
                     const result = await response.json();
-
                     if (result.success) {
                         sessionStorage.setItem('authToken', result.token);
                         sessionStorage.setItem('userName', result.nome);
                         sessionStorage.setItem('userProfile', result.perfil);
-                        sessionStorage.setItem('userEmail', result.email); 
-
+                        sessionStorage.setItem('userEmail', result.email);
                         if (result.perfil === 'Gestor') {
                             window.location.href = 'gestor.html';
                         } else if (result.perfil === 'Operador') {
@@ -99,11 +140,7 @@
                         throw new Error(result.message || 'Credenciais inválidas.');
                     }
                 } catch (error) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Falha no Login',
-                        text: error.message
-                    });
+                    Swal.fire({ icon: 'error', title: 'Falha no Login', text: error.message });
                     loginBtn.disabled = false;
                     loginBtn.textContent = 'Entrar';
                 }
