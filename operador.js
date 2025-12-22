@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // --- CONSTANTES E VARIÁVEIS GLOBAIS ---
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxB3aZOVBhGSebSvsrYDB7ShVAqMekg12a437riystZtTHmyUPMjbJd_GzLdw4cOs7k/exec";
+    
     let db;
     let quadrasLayer, activityStatus = {}, currentActivityData = {}, userMarker = null, watchId = null;
     let isSyncing = false;
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- ELEMENTOS DOM ---
     const map = L.map('map', { zoomControl: false }).setView([-23.1791, -45.8872], 13);
     const logoutBtn = document.getElementById('logout-btn-op');
+    // ... (restante dos elementos DOM, sem alterações)
     const changePasswordBtn = document.getElementById('change-password-btn');
     const changePasswordModal = document.getElementById('change-password-modal');
     const changePasswordForm = document.getElementById('change-password-form');
@@ -90,22 +92,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // =========================================================
+    //  INÍCIO DA CORREÇÃO APLICADA
+    // =========================================================
     // --- BANCO DE DADOS LOCAL (INDEXEDDB) ---
     function initDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open('atividadesDB', 2);
+            // CORREÇÃO: Versão incrementada para 3 para forçar a atualização do schema.
+            const request = indexedDB.open('atividadesDB', 3);
+
             request.onupgradeneeded = e => {
-                if (!e.target.result.objectStoreNames.contains('sync_queue')) {
-                    e.target.result.createObjectStore('sync_queue', { keyPath: 'id_sync' });
+                const dbInstance = e.target.result;
+                // Garante uma estrutura limpa: deleta a tabela antiga se ela existir.
+                if (dbInstance.objectStoreNames.contains('sync_queue')) {
+                    dbInstance.deleteObjectStore('sync_queue');
                 }
+                // Recria a tabela com a estrutura correta.
+                dbInstance.createObjectStore('sync_queue', { keyPath: 'id_sync' });
             };
+
             request.onsuccess = e => { db = e.target.result; resolve(db); };
-            request.onerror = e => reject(e.target.error);
+            request.onerror = e => {
+                console.error("Erro ao inicializar o IndexedDB:", e.target.error);
+                reject(e.target.error);
+            };
         });
     }
-
+    // =========================================================
+    //  FIM DA CORREÇÃO APLICADA
+    // =========================================================
     // --- LÓGICA DE SINCRONIZAÇÃO E STATUS OFFLINE ---
-    // ** CORREÇÃO: FUNÇÃO RESTAURADA **
     async function updateSyncBadge() {
         if (!db) return;
         const transaction = db.transaction('sync_queue', 'readonly');
@@ -120,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 clearBtn.disabled = count === 0;
                 resolve();
             };
-            countRequest.onerror = () => resolve(); // Resolve mesmo em caso de erro para não travar a aplicação
+            countRequest.onerror = () => resolve();
         });
     }
 
@@ -140,12 +156,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 updateStatusIndicator(true, `Sincronizando ${updates.length} item(s)...`);
                 
                 try {
-                    await fetchFromApi('batchUpdateStatus', { updates }, 'POST');
+                    const result = await fetchFromApi('batchUpdateStatus', { updates }, 'POST');
+                    
+                    if (result.status === 'partial_success') {
+                        Swal.fire('Sincronização Parcial', result.message, 'warning');
+                        resolve(false); 
+                        return;
+                    }
+
                     const clearTransaction = db.transaction(['sync_queue'], 'readwrite');
                     clearTransaction.objectStore('sync_queue').clear();
                     await new Promise(res => clearTransaction.oncomplete = res);
                     await updateSyncBadge();
                     resolve(true);
+
                 } catch (error) {
                     resolve(false);
                 } finally {
@@ -190,7 +214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             Swal.fire('Limpo!', 'As alterações locais foram removidas.', 'success');
         }
     }
-
+    
     // --- GESTÃO DE ATIVIDADES E MAPA ---
     async function popularAtividadesPendentes() {
         atividadeSelect.innerHTML = '<option value="">Carregando...</option>';
@@ -244,8 +268,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function getQuadraId(feature) { return feature?.properties?.title ? parseInt(feature.properties.title.replace(/\D/g, '')) : null; }
-    function getAreaId(feature) { return feature?.properties?.description ? parseInt(feature.properties.description.replace(/\D/g, '')) : null; }
+    function getQuadraId(feature) {
+        if (!feature?.properties) return null;
+        const props = feature.properties;
+        const idSource = props.title ?? props.name ?? props.ID_QUADRA ?? props.id ?? props.ID ?? null;
+        if (idSource === null) return null;
+        const numericId = parseInt(String(idSource).replace(/\D/g, ''));
+        return isNaN(numericId) ? null : numericId;
+    }
+
+    function getAreaId(feature) {
+        if (!feature?.properties) return null;
+        const props = feature.properties;
+        const idSource = props.description ?? props.area ?? props.AREA_ID ?? props.area_id ?? null;
+        if (idSource === null) return null;
+        const numericId = parseInt(String(idSource).replace(/\D/g, ''));
+        return isNaN(numericId) ? null : numericId;
+    }
+
     function getColorForArea(areaId) { return `hsl(${(areaId * 137.508) % 360}, 80%, 50%)`; }
 
     function getStyle(feature) {
@@ -268,9 +308,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             layer.bindTooltip(id.toString(), { permanent: true, direction: 'center', className: 'quadra-label' }).openTooltip();
             layer.on('click', () => {
                 const areaId = getAreaId(feature);
+                if (areaId === null) {
+                    console.error("Não foi possível identificar a ÁREA desta quadra. Verifique as propriedades do GeoJSON.", feature);
+                    Swal.fire('Erro de Identificação', 'Não foi possível identificar a ÁREA desta quadra. A alteração não pode ser salva.', 'error');
+                    return;
+                }
                 const novoStatus = (activityStatus[`${areaId}-${id}`] === 'Pendente') ? 'Trabalhada' : 'Pendente';
                 atualizarStatusQuadra(id, areaId, novoStatus);
             });
+        } else {
+            console.warn("Uma quadra no mapa não pôde ser identificada (sem ID). O clique será desativado para ela.", feature);
         }
     }
 
@@ -286,14 +333,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         updateProgressCounter();
         
-        if (!db) return;
-        const tx = db.transaction(['sync_queue'], 'readwrite');
-        tx.objectStore('sync_queue').put({
-            id_sync: `${currentActivityId}-${currentActivityCycle}-${id}`,
-            id_atividade: currentActivityId, ciclo: currentActivityCycle, id_quadra: id, status: novoStatus
-        });
-        await new Promise(res => tx.oncomplete = res);
-        await updateSyncBadge();
+        if (!db) {
+            Swal.fire('Erro Crítico', 'A conexão com o banco de dados local foi perdida.', 'error');
+            return;
+        }
+
+        try {
+            const tx = db.transaction(['sync_queue'], 'readwrite');
+            const store = tx.objectStore('sync_queue');
+            store.put({
+                id_sync: `${currentActivityId}-${currentActivityCycle}-${areaId}-${id}`,
+                id_atividade: currentActivityId,
+                ciclo: currentActivityCycle,
+                id_area: areaId,
+                id_quadra: id,
+                status: novoStatus
+            });
+
+            await new Promise((resolve, reject) => {
+                tx.oncomplete = () => resolve();
+                tx.onerror = (event) => {
+                    console.error("Erro na transação do IndexedDB:", event.target.error);
+                    reject(event.target.error);
+                };
+                tx.onabort = (event) => {
+                     console.error("Transação do IndexedDB abortada:", event.target.error);
+                     reject(new Error("A transação para salvar localmente foi abortada."));
+                }
+            });
+
+            await updateSyncBadge();
+
+        } catch (error) {
+            Swal.fire('Falha ao Salvar Localmente', `Não foi possível salvar a alteração da quadra ${id}. Erro: ${error.message}`, 'error');
+            activityStatus[compositeKey] = novoStatus === 'Trabalhada' ? 'Pendente' : 'Trabalhada';
+            if (quadrasLayer) {
+                 quadrasLayer.eachLayer(layer => {
+                    if (`${getAreaId(layer.feature)}-${getQuadraId(layer.feature)}` === compositeKey) {
+                        layer.setStyle(getStyle(layer.feature));
+                    }
+                });
+            }
+            updateProgressCounter();
+        }
     }
 
     function updateProgressCounter() {
@@ -307,8 +389,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         progressCounter.textContent = `${trabalhadas} / ${total}`;
         progressContainer.style.display = 'flex';
     }
-
+    
     // --- LÓGICA DO BOLETIM ---
+    // ... (funções do boletim, sem alterações)
     function openBulletinModal() {
         bulletinForm.reset();
         document.getElementById('bulletin-data').value = new Date().toLocaleDateString('pt-BR');
@@ -317,12 +400,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         carregarRascunhoBoletim();
         bulletinModal.style.display = 'flex';
     }
-
     async function handleBulletinSubmit(e) {
         e.preventDefault();
         const submitButton = e.target.querySelector('button[type="submit"]');
         submitButton.disabled = true; submitButton.textContent = 'Sincronizando Quadras...';
-        
         const syncSuccess = await syncOfflineUpdates();
         if (!syncSuccess) {
             Swal.fire('Envio Interrompido', 'A sincronização das quadras falhou. Verifique sua conexão e tente novamente.', 'error');
@@ -330,14 +411,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         submitButton.textContent = 'Enviando boletim...';
-
-        const payload = { id_atividade: currentActivityId, ciclo: currentActivityCycle };
-        camposBoletimParaSalvar.forEach(id => {
-            const key = id.replace('bulletin-', '').replace(/-/g, '_');
-            payload[key] = document.getElementById(id).value;
-        });
-        payload.ocorrencias = Array.from(document.querySelectorAll('input[name="ocorrencia"]:checked')).map(cb => cb.value).join(', ');
-        
+        const payload = {
+            id_atividade: currentActivityId,
+            ciclo: currentActivityCycle,
+            patrimonio: document.getElementById('bulletin-patrimonio').value,
+            viatura: document.getElementById('bulletin-viatura').value,
+            inseticida: document.getElementById('bulletin-inseticida').value,
+            vol_inicial: document.getElementById('bulletin-vol-inicial').value,
+            vol_final: document.getElementById('bulletin-vol-final').value,
+            consumo: document.getElementById('bulletin-consumo').value,
+            consumo_gasolina: document.getElementById('bulletin-consumo-gasolina').value,
+            hora_inicio: document.getElementById('bulletin-hora-inicio').value,
+            temp_inicio: document.getElementById('bulletin-temp-inicio').value,
+            hora_termino: document.getElementById('bulletin-hora-termino').value,
+            temp_termino: document.getElementById('bulletin-temp-termino').value,
+            tempo_interrupcao: document.getElementById('bulletin-interrupcao').value,
+            tempo_aplicacao: document.getElementById('bulletin-tempo-total').value,
+            odo_inicio: document.getElementById('bulletin-odo-inicio').value,
+            odo_termino: document.getElementById('bulletin-odo-termino').value,
+            km_rodado: document.getElementById('bulletin-km-rodado').value,
+            observacao: document.getElementById('bulletin-obs').value,
+            ocorrencias: Array.from(document.querySelectorAll('input[name="ocorrencia"]:checked')).map(cb => cb.value).join(', ')
+        };
         const result = await fetchFromApi('submitBulletin', payload, 'POST');
         if (result.success) {
             Swal.fire('Sucesso!', 'Boletim enviado!', 'success');
@@ -350,7 +445,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         submitButton.disabled = false; submitButton.textContent = 'Enviar Boletim';
     }
-    
     function salvarRascunhoBoletim() {
         if (!currentActivityId || !currentActivityCycle) return;
         const rascunho = {};
@@ -358,7 +452,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         rascunho.ocorrencias = Array.from(document.querySelectorAll('input[name="ocorrencia"]:checked')).map(cb => cb.value);
         localStorage.setItem(`rascunhoBoletim_${currentActivityId}_${currentActivityCycle}`, JSON.stringify(rascunho));
     }
-
     function carregarRascunhoBoletim() {
         const rascunhoSalvo = localStorage.getItem(`rascunhoBoletim_${currentActivityId}_${currentActivityCycle}`);
         if (rascunhoSalvo) {
@@ -372,7 +465,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('bulletin-vol-inicial').dispatchEvent(new Event('input'));
         }
     }
-
     function setupBulletinCalculations() {
         const fields = {
             volInicial: document.getElementById('bulletin-vol-inicial'), volFinal: document.getElementById('bulletin-vol-final'), consumo: document.getElementById('bulletin-consumo'),
@@ -386,15 +478,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const h = Math.floor(m / 60); const M = Math.round(m % 60);
                 return `${String(h).padStart(2, '0')}:${String(M).padStart(2, '0')}`;
             };
-            fields.consumo.value = Math.max(0, (parseFloat(fields.volInicial.value) || 0) - (parseFloat(fields.volFinal.value) || 0));
+            fields.consumo.value = Math.max(0, (parseFloat(fields.volInicial.value) || 0) - (parseFloat(fields.volFinal.value) || 0)).toFixed(2);
             const duracao = Math.max(0, timeToMinutes(fields.horaTermino.value) - timeToMinutes(fields.horaInicio.value));
             fields.tempoTotal.value = minutesToTime(duracao - timeToMinutes(fields.interrupcao.value));
-            fields.kmRodado.value = Math.max(0, (parseFloat(fields.odoTermino.value) || 0) - (parseFloat(fields.odoInicio.value) || 0));
+            fields.kmRodado.value = Math.max(0, (parseFloat(fields.odoTermino.value) || 0) - (parseFloat(fields.odoInicio.value) || 0)).toFixed(2);
         };
         Object.values(fields).forEach(el => el?.addEventListener('input', update));
     }
 
     // --- LÓGICA DE GEOLOCALIZAÇÃO ---
+    // ... (funções de geolocalização, sem alterações)
     function startTracking() {
         if (!navigator.geolocation) {
             return Swal.fire('Indisponível', 'A geolocalização não é suportada por este navegador.', 'error');
@@ -421,7 +514,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     }
-    
     function stopTracking() {
         if (watchId !== null) navigator.geolocation.clearWatch(watchId);
         if (userMarker) map.removeLayer(userMarker);
@@ -429,8 +521,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         userMarker = null;
         trackBtn.classList.remove('tracking');
     }
-
+    
     // --- EVENT LISTENERS E CONFIGURAÇÃO FINAL ---
+    // ... (funções de setup e event handlers, sem alterações)
     function setupEventListeners() {
         logoutBtn.addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
         changePasswordBtn.addEventListener('click', () => changePasswordModal.style.display = 'flex');
@@ -464,7 +557,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.addEventListener('online', syncOfflineUpdates);
         window.addEventListener('offline', () => updateStatusIndicator());
     }
-
     async function handleChangePassword(e) {
         e.preventDefault();
         const button = e.target.querySelector('button');
