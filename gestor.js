@@ -78,8 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return { success: false, message: error.message };
         }
     }
-
-    // --- LÓGICA DE GERENCIAMENTO DO FORMULÁRIO (CORRIGIDA) ---
+    // --- LÓGICA DE GERENCIAMENTO DO FORMULÁRIO ---
     function setFormEnabled(enabled) {
         const formElements = formContainer.querySelectorAll('input, select, button');
         formElements.forEach(el => el.disabled = !enabled);
@@ -132,7 +131,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = await fetchFromApi('listUsers');
         if (result.success) { renderUsersTable(result.data); }
     }
-
     // --- GESTÃO DE ATIVIDADES ---
     function renderActivitiesTable(activities) {
         activitiesTableBody.innerHTML = '';
@@ -142,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activities.forEach(act => {
             const progresso = act.totalQuadras > 0 ? (act.quadrasTrabalhadas / act.totalQuadras) * 100 : 0;
             const row = document.createElement('tr');
+            // CORRIGIDO: Exibe diretamente o campo 'data', que já vem formatado do back-end.
             row.innerHTML = `
                 <td>${act.id} (${act.ciclo})</td><td>${act.data}</td><td>${act.veiculo}</td>
                 <td><div class="progress-bar"><div class="progress-bar-fill" style="width: ${progresso.toFixed(1)}%;">${progresso.toFixed(0)}%</div></div><small>${act.quadrasTrabalhadas} de ${act.totalQuadras}</small></td>
@@ -246,7 +245,6 @@ document.addEventListener('DOMContentLoaded', () => {
         layer.setStyle(getStyleForFeature(feature));
         updateSidebar();
     }
-    
     // --- DADOS INICIAIS E AUTOCOMPLETE ---
     async function popularDadosIniciais() {
         try {
@@ -318,13 +316,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         activities.forEach(act => {
             const row = document.createElement('tr');
+            // CORRIGIDO: Exibe diretamente o campo 'data', que já vem formatado do back-end.
             row.innerHTML = `
                 <td>${act.id} (${act.ciclo})</td><td>${act.data}</td><td>${act.viatura}</td><td>${act.ocorrencias || 'Nenhuma'}</td>
                 <td class="action-buttons"><button class="btn-view-map" data-id="${act.id}" data-ciclo="${act.ciclo}">Ver Mapa</button></td>`;
             historyTableBody.appendChild(row);
         });
     }
-
     // --- EVENT LISTENERS ---
     welcomeMessage.textContent = `Bem-vindo(a), ${userName || 'Usuário'}`;
     logoutBtn.addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
@@ -532,7 +530,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('save-activity').addEventListener('click', async () => {
-        setFormEnabled(true);
         const payload = {
             id_atividade: document.getElementById('atividade-id').value.trim(),
             ciclos: Array.from(document.querySelectorAll('input[name="ciclo"]:checked')).map(cb => cb.value),
@@ -556,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     areaSelector.addEventListener('change', async (e) => {
-        setFormEnabled(true); // Garante que o form está ativo ao selecionar nova área
+        setFormEnabled(true);
         const areaId = e.target.value;
         if (!areaId) { if (quadrasLayer) map.removeLayer(quadrasLayer); return; };
         if (quadrasLayer) map.removeLayer(quadrasLayer);
